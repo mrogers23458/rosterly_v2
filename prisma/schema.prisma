@@ -1,0 +1,80 @@
+// Prisma connects to your Supabase Postgres `public` schema.
+// Migrations use DIRECT_URL (port 5432).
+// The app uses DATABASE_URL (pooler, port 6543) for serverless-friendly pooling.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
+}
+
+model Team {
+  id           String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  userId       String   @map("user_id") @db.Uuid
+  name         String
+  year         String   @default("")
+  season       String
+  division     String
+  ageGroup     String   @map("age_group")
+  teamType     String   @map("team_type")
+  organization String?
+  isActive     Boolean  @default(true) @map("is_active")
+  isArchived   Boolean  @default(false) @map("is_archived")
+  createdAt    DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt    DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  rosters Roster[]
+
+  @@map("teams")
+}
+
+model Roster {
+  id         String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  userId     String   @map("user_id") @db.Uuid
+  teamId     String?  @map("team_id") @db.Uuid
+  name       String
+  season     String
+  year       String   @default("")
+  isActive   Boolean  @default(true) @map("is_active")
+  isArchived Boolean  @default(false) @map("is_archived")
+  notes      String?
+  createdAt  DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt  DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  team    Team?    @relation(fields: [teamId], references: [id], onDelete: SetNull)
+  players Player[]
+
+  @@map("rosters")
+}
+
+model Player {
+  id                  String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  userId              String   @map("user_id") @db.Uuid
+  rosterId            String   @map("roster_id") @db.Uuid
+  firstName           String   @map("first_name")
+  lastName            String   @map("last_name")
+  preferredName       String?  @map("preferred_name")
+  jerseyNumber        String?  @map("jersey_number")
+  dateOfBirth         DateTime? @map("date_of_birth") @db.Date
+  bats                String?
+  throws              String?
+  primaryPositions    String[] @map("primary_positions")
+  secondaryPositions  String[] @map("secondary_positions")
+  isActive            Boolean  @default(true) @map("is_active")
+  parentGuardianName  String?  @map("parent_guardian_name")
+  parentGuardianEmail String?  @map("parent_guardian_email")
+  parentGuardianPhone String?  @map("parent_guardian_phone")
+  medicalNotes        String?  @map("medical_notes")
+  uniformSize         String?  @map("uniform_size")
+  notes               String?
+  createdAt           DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt           DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  roster Roster @relation(fields: [rosterId], references: [id], onDelete: Cascade)
+
+  @@map("players")
+}
