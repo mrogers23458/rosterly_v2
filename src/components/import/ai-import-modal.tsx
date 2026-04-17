@@ -95,11 +95,13 @@ type Props = {
   onOpenChange: (v: boolean) => void;
   /** If provided, pre-fill the existing team selection for roster/lineup import */
   preselectedTeamId?: string;
+  /** Pre-select the upload tab on open ("file" or "sheets") */
+  defaultInputMode?: InputMode;
 };
 
-export function AiImportModal({ open, onOpenChange, preselectedTeamId }: Props) {
+export function AiImportModal({ open, onOpenChange, preselectedTeamId, defaultInputMode }: Props) {
   const [step,       setStep]       = useState<Step>("upload");
-  const [inputMode,  setInputMode]  = useState<InputMode>("file");
+  const [inputMode,  setInputMode]  = useState<InputMode>(defaultInputMode ?? "file");
   const [file,       setFile]       = useState<File | null>(null);
   const [sheetUrl,   setSheetUrl]   = useState("");
   const [dragging,   setDragging]   = useState(false);
