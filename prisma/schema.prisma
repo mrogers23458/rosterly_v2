@@ -28,6 +28,7 @@ model Team {
   updatedAt    DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
 
   rosters Roster[]
+  events  Event[]
 
   @@map("teams")
 }
@@ -47,8 +48,35 @@ model Roster {
 
   team    Team?    @relation(fields: [teamId], references: [id], onDelete: SetNull)
   players Player[]
+  events  Event[]
 
   @@map("rosters")
+}
+
+model Event {
+  id         String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  userId     String    @map("user_id") @db.Uuid
+  teamId     String?   @map("team_id") @db.Uuid
+  rosterId   String?   @map("roster_id") @db.Uuid
+  /// FK to game_lineups — managed as a raw UUID (game_lineups is a raw-SQL table)
+  lineupId   String?   @map("lineup_id") @db.Uuid
+  type       String    @default("game")
+  title      String
+  opponent   String?
+  eventDate  DateTime  @map("event_date") @db.Date
+  startTime  String?   @map("start_time")
+  endTime    String?   @map("end_time")
+  location   String?
+  notes      String?
+  isHome     Boolean   @default(true) @map("is_home")
+  isArchived Boolean   @default(false) @map("is_archived")
+  createdAt  DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt  DateTime  @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  team   Team?   @relation(fields: [teamId],   references: [id], onDelete: SetNull)
+  roster Roster? @relation(fields: [rosterId], references: [id], onDelete: SetNull)
+
+  @@map("events")
 }
 
 model Player {
