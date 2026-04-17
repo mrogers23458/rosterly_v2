@@ -10,7 +10,7 @@ export function ManualSetupWidget() {
 
   return (
     <>
-      <div className="flex flex-col gap-5 rounded-lg border border-border bg-card p-5 sm:p-6">
+      <div className="flex h-full flex-col gap-5 rounded-lg border border-border bg-card p-5 sm:p-6">
         {/* Header */}
         <div className="flex items-start gap-3">
           <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-muted">

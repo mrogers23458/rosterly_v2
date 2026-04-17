@@ -78,7 +78,10 @@ function SortableShell({
     <div
       ref={setNodeRef}
       style={{ transform: CSS.Transform.toString(transform), transition }}
-      className={cn("flex flex-col", isDragging && "opacity-30")}
+      className={cn(
+        "flex h-full min-h-[260px] flex-col",
+        isDragging && "opacity-30",
+      )}
     >
       {/* Control bar */}
       <div className="flex items-center justify-between rounded-t-lg border border-b-0 border-border bg-muted/40 px-3 py-1.5">
@@ -100,8 +103,8 @@ function SortableShell({
         </button>
       </div>
 
-      {/* Widget — flatten top corners to merge with control bar */}
-      <div className="[&>*]:rounded-t-none [&>*]:border-t-0">
+      {/* Widget — fill remaining height, flatten top corners to merge with control bar */}
+      <div className="flex flex-1 flex-col [&>*]:flex-1 [&>*]:rounded-t-none [&>*]:border-t-0">
         {children}
       </div>
     </div>
@@ -210,7 +213,7 @@ export function DashboardGrid({
     return (
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
         {DEFAULT_ORDER.filter((id) => !DEFAULT_HIDDEN.includes(id)).map((id) => (
-          <div key={id} className="h-48 animate-pulse rounded-lg border border-border bg-muted/30" />
+          <div key={id} className="min-h-[260px] animate-pulse rounded-lg border border-border bg-muted/30" />
         ))}
       </div>
     );
