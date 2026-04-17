@@ -82,15 +82,14 @@ export async function createEvent(
       const { data, error } = await supabase
         .from("events")
         .insert(rows)
-        .select()
-        .limit(1)
-        .single();
+        .select();
 
       if (error) return { data: null, error: error.message };
+      if (!data || data.length === 0) return { data: null, error: "No events created." };
 
       revalidatePath("/events");
       if (input.team_id) revalidatePath(`/teams/${input.team_id}`);
-      return { data: data as TeamEvent, error: null };
+      return { data: data[0] as TeamEvent, error: null };
     }
 
     // ── Single event ──────────────────────────────────────────────────────
@@ -137,21 +136,26 @@ export async function updateEvent(
     };
 
     if (scope === "all" && input.recurrence_group_id) {
-      const { data, error } = await supabase
+      const { error } = await supabase
         .from("events")
         .update(patch)
         .eq("recurrence_group_id", input.recurrence_group_id)
-        .eq("user_id", user.id)
-        .select()
-        .limit(1)
-        .single();
+        .eq("user_id", user.id);
 
       if (error) return { data: null, error: error.message };
+
+      // Return the current event's refreshed data
+      const { data: refreshed } = await supabase
+        .from("events")
+        .select()
+        .eq("id", input.id)
+        .eq("user_id", user.id)
+        .single();
 
       revalidatePath("/events");
       revalidatePath(`/events/${input.id}`);
       if (input.team_id) revalidatePath(`/teams/${input.team_id}`);
-      return { data: data as TeamEvent, error: null };
+      return { data: (refreshed ?? null) as TeamEvent | null, error: null };
     }
 
     // "this" scope — also update event_date for single edits
