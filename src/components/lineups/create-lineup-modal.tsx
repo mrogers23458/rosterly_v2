@@ -4,7 +4,7 @@ import {
   AlertTriangle, CheckCircle2, ClipboardList, Copy, LayoutList, Loader2, Search,
 } from "lucide-react";
 import { useRouter } from "next/navigation";
-import { useEffect, useState, useTransition } from "react";
+import { useEffect, useMemo, useState, useTransition } from "react";
 import {
   createLineup,
   fetchLineupEntries,
@@ -29,26 +29,89 @@ import { CreateRosterModal } from "@/components/rosters/create-roster-modal";
 import { cn } from "@/lib/utils";
 import type { Player, Roster, Team } from "@/lib/constants/teams";
 
-// re-export so consumers that need EntryDraft don't have to know about lineup-table
 export type { EntryDraft };
 
 type View = "start" | "pick-roster" | "pick-duplicate" | "form" | "warn" | "done";
 
+// ─── Team selector field ──────────────────────────────────────────────────────
+
+function TeamSelectorField({
+  selectedTeamId,
+  allTeams,
+  onChange,
+  className,
+}: {
+  selectedTeamId: string;
+  allTeams:       Team[];
+  onChange:       (id: string) => void;
+  className?:     string;
+}) {
+  return (
+    <div className={cn("flex flex-col gap-1.5", className)}>
+      <Label htmlFor="lineup-team">
+        Team
+        {!selectedTeamId && (
+          <span className="ml-1.5 text-xs font-normal text-amber-600">
+            (recommended — helps organize your lineups)
+          </span>
+        )}
+      </Label>
+      <select
+        id="lineup-team"
+        value={selectedTeamId}
+        onChange={(e) => onChange(e.target.value)}
+        className="flex h-9 w-full rounded-md border border-input bg-background px-3 py-1 text-sm shadow-xs transition-colors focus:outline-none focus:ring-1 focus:ring-ring"
+      >
+        <option value="">No team</option>
+        {allTeams.filter((t) => !t.is_archived).map((t) => (
+          <option key={t.id} value={t.id}>{t.name}</option>
+        ))}
+      </select>
+    </div>
+  );
+}
+
 // ─── Start step ───────────────────────────────────────────────────────────────
 
 function StartStep({
-  hasActiveRosters, allTeams, teamId, onLoadRoster, onDuplicate, onManual, onClose,
+  selectedTeamId,
+  allTeams,
+  allRosters,
+  rosterPlayersMap,
+  onTeamChange,
+  onLoadRoster,
+  onDuplicate,
+  onManual,
+  onClose,
 }: {
-  hasActiveRosters: boolean;
-  allTeams: Team[];
-  teamId: string;
-  onLoadRoster: () => void;
-  onDuplicate: () => void;
-  onManual: () => void;
-  onClose: () => void;
+  selectedTeamId:   string;
+  allTeams:         Team[];
+  allRosters:       Roster[];
+  rosterPlayersMap: Record<string, Player[]>;
+  onTeamChange:     (id: string) => void;
+  onLoadRoster:     () => void;
+  onDuplicate:      () => void;
+  onManual:         () => void;
+  onClose:          () => void;
 }) {
+  const activeRosters = useMemo(
+    () => selectedTeamId
+      ? allRosters.filter((r) => r.team_id === selectedTeamId && r.is_active && !r.is_archived)
+      : [],
+    [allRosters, selectedTeamId],
+  );
+  const hasActiveRosters = activeRosters.length > 0;
+
   return (
-    <div className="flex flex-col gap-4">
+    <div className="flex flex-col gap-5">
+      {/* Team selector */}
+      <TeamSelectorField
+        selectedTeamId={selectedTeamId}
+        allTeams={allTeams}
+        onChange={onTeamChange}
+      />
+
+      {/* Method picker */}
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
         <button
           type="button"
@@ -62,9 +125,11 @@ function StartStep({
           <div>
             <p className="text-sm font-semibold">Load from roster</p>
             <p className="mt-0.5 text-xs text-muted-foreground">
-              {hasActiveRosters
-                ? "Pick an active roster to pre-fill players"
-                : "No active rosters on this team"}
+              {!selectedTeamId
+                ? "Select a team first"
+                : hasActiveRosters
+                  ? "Pick an active roster to pre-fill players"
+                  : "No active rosters on this team"}
             </p>
           </div>
         </button>
@@ -80,7 +145,9 @@ function StartStep({
           <div>
             <p className="text-sm font-semibold">Duplicate a lineup</p>
             <p className="mt-0.5 text-xs text-muted-foreground">
-              Copy a previous lineup and adjust from there
+              {selectedTeamId
+                ? "Copy a previous lineup and adjust from there"
+                : "Copy any previous lineup"}
             </p>
           </div>
         </button>
@@ -100,7 +167,8 @@ function StartStep({
         </button>
       </div>
 
-      {!hasActiveRosters && (
+      {/* Warn: no active rosters */}
+      {selectedTeamId && !hasActiveRosters && (
         <div className="rounded-lg border border-amber-200 bg-amber-50 p-4 dark:border-amber-900/30 dark:bg-amber-900/10">
           <div className="flex items-start gap-2">
             <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-amber-600 dark:text-amber-400" />
@@ -110,7 +178,7 @@ function StartStep({
                 Create an active roster first to load players automatically.
               </p>
               <div className="mt-3">
-                <CreateRosterModal teams={allTeams} defaultTeamId={teamId} />
+                <CreateRosterModal teams={allTeams} defaultTeamId={selectedTeamId} />
               </div>
             </div>
           </div>
@@ -124,16 +192,16 @@ function StartStep({
   );
 }
 
-// ─── Duplicate picker step ─────────────────────────────────────────────────────
+// ─── Duplicate picker step ────────────────────────────────────────────────────
 
 function PickDuplicateStep({
   teamId,
   onSelect,
   onBack,
 }: {
-  teamId: string;
+  teamId:   string | null;
   onSelect: (entries: EntryDraft[], source: TeamLineupSummary) => void;
-  onBack: () => void;
+  onBack:   () => void;
 }) {
   const [lineups,   setLineups]   = useState<TeamLineupSummary[]>([]);
   const [loading,   setLoading]   = useState(true);
@@ -141,7 +209,8 @@ function PickDuplicateStep({
   const [search,    setSearch]    = useState("");
 
   useEffect(() => {
-    fetchTeamLineups(teamId).then((data) => {
+    setLoading(true);
+    fetchTeamLineups(teamId ?? null).then((data) => {
       setLineups(data);
       setLoading(false);
     });
@@ -183,7 +252,7 @@ function PickDuplicateStep({
         </div>
       ) : filtered.length === 0 ? (
         <div className="py-8 text-center text-sm text-muted-foreground">
-          {search ? "No lineups match your search." : "No previous lineups found for this team."}
+          {search ? "No lineups match your search." : "No previous lineups found."}
         </div>
       ) : (
         <ul className="flex flex-col divide-y divide-border overflow-hidden rounded-lg border border-border">
@@ -203,8 +272,7 @@ function PickDuplicateStep({
                   <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-muted">
                     {isLoading
                       ? <Loader2 className="h-4 w-4 animate-spin text-primary" />
-                      : <Copy className="h-4 w-4 text-muted-foreground" />
-                    }
+                      : <Copy    className="h-4 w-4 text-muted-foreground" />}
                   </div>
                   <div className="min-w-0 flex-1">
                     <p className="truncate text-sm font-medium">{lineup.name}</p>
@@ -237,25 +305,31 @@ function PickDuplicateStep({
 // ─── Main modal ───────────────────────────────────────────────────────────────
 
 type Props = {
-  teamId: string;
-  activeRosters: Roster[];
+  /** Pre-select a team. Defaults to the user's first active team. */
+  initialTeamId?:   string;
+  allTeams:         Team[];
+  allRosters:       Roster[];
   rosterPlayersMap: Record<string, Player[]>;
-  allTeams: Team[];
-  /** When provided the modal is fully controlled — no trigger button is rendered. */
-  open?: boolean;
-  onOpenChange?: (v: boolean) => void;
+  open?:            boolean;
+  onOpenChange?:    (v: boolean) => void;
 };
 
 export function CreateLineupModal({
-  teamId, activeRosters, rosterPlayersMap, allTeams,
+  initialTeamId, allTeams, allRosters, rosterPlayersMap,
   open: controlledOpen, onOpenChange,
 }: Props) {
   const router = useRouter();
 
-  const [internalOpen, setInternalOpen] = useState(false);
+  const activeTeams = useMemo(() => allTeams.filter((t) => !t.is_archived), [allTeams]);
+
+  const defaultTeamId = initialTeamId ?? activeTeams[0]?.id ?? "";
+
+  const [internalOpen,    setInternalOpen]    = useState(false);
   const isControlled = onOpenChange !== undefined;
   const open    = isControlled ? (controlledOpen ?? false) : internalOpen;
-  const [view, setView] = useState<View>("start");
+
+  const [view,           setView]           = useState<View>("start");
+  const [selectedTeamId, setSelectedTeamId] = useState(defaultTeamId);
 
   const [name,     setName]     = useState("");
   const [gameDate, setGameDate] = useState("");
@@ -268,10 +342,27 @@ export function CreateLineupModal({
 
   const [issues,      setIssues]      = useState<ValidationIssue[]>([]);
   const [submitError, setSubmitError] = useState<string | null>(null);
-  const [isPending, startTransition]  = useTransition();
+  const [isPending,   startTransition] = useTransition();
+
+  // Derived rosters for the currently selected team
+  const activeRostersForTeam = useMemo(
+    () => selectedTeamId
+      ? allRosters.filter((r) => r.team_id === selectedTeamId && r.is_active && !r.is_archived)
+      : [],
+    [allRosters, selectedTeamId],
+  );
+
+  const rosterPlayersSlice = useMemo(() => {
+    const out: Record<string, Player[]> = {};
+    for (const r of activeRostersForTeam) {
+      out[r.id] = rosterPlayersMap[r.id] ?? [];
+    }
+    return out;
+  }, [activeRostersForTeam, rosterPlayersMap]);
 
   function reset() {
     setView("start");
+    setSelectedTeamId(defaultTeamId);
     setName(""); setGameDate(""); setNotes("");
     setSelectedRosterId(null);
     setInningCount(6);
@@ -285,7 +376,7 @@ export function CreateLineupModal({
   }
 
   function handleSelectRoster(rosterId: string) {
-    const players = rosterPlayersMap[rosterId] ?? [];
+    const players = rosterPlayersSlice[rosterId] ?? [];
     setSelectedRosterId(rosterId);
     setEntries(players.map((p) => entryFromPlayer(p, inningCount)));
     setEntriesVersion((v) => v + 1);
@@ -297,9 +388,7 @@ export function CreateLineupModal({
     setInningCount(source.inning_count);
     setEntries(drafts);
     setEntriesVersion((v) => v + 1);
-    // Pre-fill name and notes; clear date (this is a new game)
     setName(`Copy of ${source.name}`);
-    setNotes(notes); // keep whatever was already typed, or could use source notes
     setGameDate("");
     setView("form");
   }
@@ -340,7 +429,7 @@ export function CreateLineupModal({
       }));
 
       const result = await createLineup({
-        teamId,
+        teamId:      selectedTeamId || null,
         rosterId:    selectedRosterId,
         name,
         gameDate:    gameDate || null,
@@ -355,7 +444,9 @@ export function CreateLineupModal({
     });
   }
 
-  const selectedRosterName = activeRosters.find((r) => r.id === selectedRosterId)?.name;
+  const selectedRosterName = activeRostersForTeam.find((r) => r.id === selectedRosterId)?.name;
+  const selectedTeamName   = activeTeams.find((t) => t.id === selectedTeamId)?.name;
+
   const dialogWidth =
     view === "form" || view === "warn" ? "sm:max-w-5xl" : "sm:max-w-lg";
 
@@ -372,6 +463,11 @@ export function CreateLineupModal({
         <DialogContent className={`max-h-[92vh] overflow-y-auto ${dialogWidth}`}>
           <DialogHeader>
             <DialogTitle>Create game lineup</DialogTitle>
+            {view === "start" && (
+              <DialogDescription>
+                Choose how you want to build this lineup.
+              </DialogDescription>
+            )}
             {view === "pick-roster" && (
               <DialogDescription>Select a roster to load its players</DialogDescription>
             )}
@@ -390,9 +486,11 @@ export function CreateLineupModal({
           <DialogBody>
             {view === "start" && (
               <StartStep
-                hasActiveRosters={activeRosters.length > 0}
-                allTeams={allTeams}
-                teamId={teamId}
+                selectedTeamId={selectedTeamId}
+                allTeams={activeTeams}
+                allRosters={allRosters}
+                rosterPlayersMap={rosterPlayersMap}
+                onTeamChange={setSelectedTeamId}
                 onLoadRoster={() => setView("pick-roster")}
                 onDuplicate={() => setView("pick-duplicate")}
                 onManual={handleManual}
@@ -402,8 +500,8 @@ export function CreateLineupModal({
 
             {view === "pick-roster" && (
               <PickRosterStep
-                activeRosters={activeRosters}
-                rosterPlayersMap={rosterPlayersMap}
+                activeRosters={activeRostersForTeam}
+                rosterPlayersMap={rosterPlayersSlice}
                 onSelect={handleSelectRoster}
                 onBack={() => setView("start")}
               />
@@ -411,7 +509,7 @@ export function CreateLineupModal({
 
             {view === "pick-duplicate" && (
               <PickDuplicateStep
-                teamId={teamId}
+                teamId={selectedTeamId || null}
                 onSelect={handleSelectDuplicate}
                 onBack={() => setView("start")}
               />
@@ -434,6 +532,7 @@ export function CreateLineupModal({
                   <p className="text-lg font-semibold">Lineup saved!</p>
                   <p className="mt-1 text-sm text-muted-foreground">
                     <span className="font-medium text-foreground">{name}</span>
+                    {selectedTeamName   && <> · {selectedTeamName}</>}
                     {selectedRosterName && <> · {selectedRosterName}</>}
                   </p>
                 </div>
@@ -451,6 +550,7 @@ export function CreateLineupModal({
                   </Alert>
                 )}
 
+                {/* Metadata: name, date, team */}
                 <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
                   <div className="flex flex-col gap-1.5 sm:col-span-2">
                     <Label htmlFor="lineup-name">
@@ -473,6 +573,11 @@ export function CreateLineupModal({
                       onChange={(e) => setGameDate(e.target.value)}
                     />
                   </div>
+                  <TeamSelectorField
+                    selectedTeamId={selectedTeamId}
+                    allTeams={activeTeams}
+                    onChange={setSelectedTeamId}
+                  />
                 </div>
 
                 <LineupTable

@@ -6,20 +6,19 @@ import { CreateLineupModal } from "@/components/lineups/create-lineup-modal";
 import type { Player, Roster, Team } from "@/lib/constants/teams";
 
 type Props = {
-  teamId: string;
-  activeRosters: Roster[];
+  initialTeamId?:   string;
+  allTeams:         Team[];
+  allRosters:       Roster[];
   rosterPlayersMap: Record<string, Player[]>;
-  allTeams: Team[];
 };
 
 export function LineupActionCards({
-  teamId, activeRosters, rosterPlayersMap, allTeams,
+  initialTeamId, allTeams, allRosters, rosterPlayersMap,
 }: Props) {
   const [createOpen, setCreateOpen] = useState(false);
 
   return (
     <>
-      {/* Create Lineup card */}
       <button
         type="button"
         onClick={() => setCreateOpen(true)}
@@ -34,12 +33,11 @@ export function LineupActionCards({
         </div>
       </button>
 
-      {/* Controlled modal — no trigger button rendered inside */}
       <CreateLineupModal
-        teamId={teamId}
-        activeRosters={activeRosters}
-        rosterPlayersMap={rosterPlayersMap}
+        initialTeamId={initialTeamId}
         allTeams={allTeams}
+        allRosters={allRosters}
+        rosterPlayersMap={rosterPlayersMap}
         open={createOpen}
         onOpenChange={setCreateOpen}
       />

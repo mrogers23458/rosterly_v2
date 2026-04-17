@@ -12,7 +12,7 @@ export type LineupEntryInput = {
 };
 
 export type CreateLineupInput = {
-  teamId: string;
+  teamId: string | null;
   rosterId: string | null;
   name: string;
   gameDate: string | null;
@@ -35,7 +35,7 @@ export async function createLineup(input: CreateLineupInput): Promise<LineupActi
     .from("game_lineups")
     .insert({
       user_id:      user.id,
-      team_id:      input.teamId,
+      team_id:      input.teamId   || null,
       roster_id:    input.rosterId || null,
       name:         input.name.trim(),
       game_date:    input.gameDate || null,
@@ -68,7 +68,7 @@ export async function createLineup(input: CreateLineupInput): Promise<LineupActi
     }
   }
 
-  revalidatePath(`/teams/${input.teamId}`);
+  if (input.teamId) revalidatePath(`/teams/${input.teamId}`);
   revalidatePath("/lineups");
   revalidatePath(`/lineups/${lineup.id}`);
   return { success: true, lineupId: lineup.id };
@@ -85,19 +85,21 @@ export type TeamLineupSummary = {
   created_at: string;
 };
 
-export async function fetchTeamLineups(teamId: string): Promise<TeamLineupSummary[]> {
+export async function fetchTeamLineups(teamId: string | null): Promise<TeamLineupSummary[]> {
   const cookieStore = await cookies();
   const supabase = createClient(cookieStore);
   const { data: { user }, error: authError } = await supabase.auth.getUser();
   if (authError || !user) return [];
 
-  const { data } = await supabase
+  let query = supabase
     .from("game_lineups")
     .select("id, name, game_date, inning_count, is_archived, created_at")
-    .eq("team_id", teamId)
     .eq("user_id", user.id)
     .order("created_at", { ascending: false });
 
+  if (teamId) query = query.eq("team_id", teamId);
+
+  const { data } = await query;
   return (data ?? []) as TeamLineupSummary[];
 }
 
