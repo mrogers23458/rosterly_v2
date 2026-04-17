@@ -29,8 +29,23 @@ model Team {
 
   rosters Roster[]
   events  Event[]
+  members TeamMember[]
 
   @@map("teams")
+}
+
+model TeamMember {
+  id         String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  teamId     String   @map("team_id") @db.Uuid
+  userId     String   @map("user_id") @db.Uuid
+  role       String
+  invitedBy  String?  @map("invited_by") @db.Uuid
+  createdAt  DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  team Team @relation(fields: [teamId], references: [id], onDelete: Cascade)
+
+  @@unique([teamId, userId])
+  @@map("team_members")
 }
 
 model Roster {

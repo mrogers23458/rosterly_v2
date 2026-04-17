@@ -3,6 +3,7 @@
 import { cookies } from "next/headers";
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/utils/supabase/server";
+import { getUserTeamRole } from "@/lib/permissions";
 
 export type TeamFormState = {
   error?: string;
@@ -55,23 +56,35 @@ export async function createTeam(
     return { error: "Name, season, division, age group, and team type are required." };
   }
 
-  const { error } = await supabase.from("teams").insert({
-    user_id: user.id,
-    name,
-    year,
-    season,
-    division,
-    age_group: ageGroup,
-    team_type: teamType,
-    organization,
-    is_active: isActive,
-    is_archived: false,
-  });
+  const { data: newTeam, error } = await supabase
+    .from("teams")
+    .insert({
+      user_id: user.id,
+      name,
+      year,
+      season,
+      division,
+      age_group: ageGroup,
+      team_type: teamType,
+      organization,
+      is_active: isActive,
+      is_archived: false,
+    })
+    .select("id")
+    .single();
 
-  if (error) {
+  if (error || !newTeam) {
     console.error("Team insert error:", error);
     return { error: "Could not create team. Please try again." };
   }
+
+  // Seed the creator as the Owner in team_members.
+  await supabase.from("team_members").insert({
+    team_id:    newTeam.id,
+    user_id:    user.id,
+    role:       "owner",
+    invited_by: null,
+  });
 
   revalidatePath("/teams");
   return { success: true };
@@ -95,11 +108,16 @@ export async function updateTeam(
     return { error: "Name, season, division, age group, and team type are required." };
   }
 
+  // Require at least manager role to edit team settings.
+  const role = await getUserTeamRole(supabase, user.id, teamId);
+  if (!role || (role !== "owner" && role !== "manager")) {
+    return { error: "Only owners and managers can edit team settings." };
+  }
+
   const { error } = await supabase
     .from("teams")
     .update({ name, year, season, division, age_group: ageGroup, team_type: teamType, organization, is_active: isActive })
-    .eq("id", teamId)
-    .eq("user_id", user.id);
+    .eq("id", teamId);
 
   if (error) {
     console.error("Team update error:", error);
@@ -116,11 +134,16 @@ export async function setTeamArchived(teamId: string, archived: boolean): Promis
   const { supabase, user } = await getAuthenticatedClient();
   if (!user) return { error: "You must be signed in." };
 
+  // Only the owner can archive/unarchive a team.
+  const role = await getUserTeamRole(supabase, user.id, teamId);
+  if (role !== "owner") {
+    return { error: "Only the team owner can archive or unarchive a team." };
+  }
+
   const { error } = await supabase
     .from("teams")
     .update({ is_archived: archived })
-    .eq("id", teamId)
-    .eq("user_id", user.id);
+    .eq("id", teamId);
 
   if (error) {
     console.error("Team archive error:", error);
@@ -137,11 +160,16 @@ export async function deleteTeam(teamId: string): Promise<{ error?: string }> {
   const { supabase, user } = await getAuthenticatedClient();
   if (!user) return { error: "You must be signed in." };
 
+  // Only the owner can delete a team.
+  const role = await getUserTeamRole(supabase, user.id, teamId);
+  if (role !== "owner") {
+    return { error: "Only the team owner can delete a team." };
+  }
+
   const { error } = await supabase
     .from("teams")
     .delete()
-    .eq("id", teamId)
-    .eq("user_id", user.id);
+    .eq("id", teamId);
 
   if (error) {
     console.error("Team delete error:", error);

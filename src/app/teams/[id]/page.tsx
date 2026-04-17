@@ -10,9 +10,13 @@ import { RosterCardActions } from "@/components/rosters/roster-card-actions";
 import { RostersArchivedSection } from "@/components/rosters/rosters-archived-section";
 import { RostersPageToolbar } from "@/components/rosters/rosters-page-toolbar";
 import { TeamCardActions } from "@/components/teams/team-card-actions";
+import { TeamMembersPanel } from "@/components/teams/team-members-panel";
 import { Badge } from "@/components/ui/badge";
 import { SortableCardGrid } from "@/components/ui/sortable-card-grid";
 import type { GameLineup, Player, Roster, Team } from "@/lib/constants/teams";
+import { getUserTeamRole } from "@/lib/permissions";
+import { ROLE_LABELS, type TeamRole } from "@/lib/constants/roles";
+import { getTeamMembers } from "@/app/actions/members";
 
 type Props = { params: Promise<{ id: string }> };
 
@@ -20,6 +24,8 @@ export default async function TeamDetailPage({ params }: Props) {
   const { id } = await params;
   const cookieStore = await cookies();
   const supabase = createClient(cookieStore);
+
+  const { data: { user } } = await supabase.auth.getUser();
 
   const { data: team } = await supabase.from("teams").select("*").eq("id", id).single();
   if (!team) notFound();
@@ -33,6 +39,14 @@ export default async function TeamDetailPage({ params }: Props) {
     supabase.from("teams").select("*").order("name", { ascending: true }),
     supabase.from("game_lineups").select("*").eq("team_id", id).order("created_at", { ascending: false }),
   ]);
+
+  // Fetch current user's role for this team
+  const userRole: TeamRole = user
+    ? ((await getUserTeamRole(supabase, user.id, id)) ?? "viewer")
+    : "viewer";
+
+  // Fetch team members (for members panel)
+  const { data: teamMembers } = await getTeamMembers(id);
 
   const typedTeam     = team      as Team;
   const typedRosters  = (rosters  ?? []) as Roster[];
@@ -85,6 +99,9 @@ export default async function TeamDetailPage({ params }: Props) {
             <h1 className="text-2xl font-bold tracking-tight sm:text-3xl">{typedTeam.name}</h1>
             <Badge variant={typedTeam.is_archived ? "muted" : typedTeam.is_active ? "success" : "muted"}>
               {typedTeam.is_archived ? "Archived" : typedTeam.is_active ? "Active" : "Inactive"}
+            </Badge>
+            <Badge variant="outline" className="text-xs">
+              Your role: {ROLE_LABELS[userRole]}
             </Badge>
           </div>
           <p className="mt-1.5 text-sm text-muted-foreground">
@@ -176,6 +193,15 @@ export default async function TeamDetailPage({ params }: Props) {
           rosterNameMap={rosterNameMap}
           activeRosters={rosterActiveOnly}
           rosterPlayersMap={rosterPlayersMap}
+        />
+      </div>
+
+      {/* ── Team Members ──────────────────────────────────────── */}
+      <div className="mt-12 border-t border-border pt-10">
+        <TeamMembersPanel
+          teamId={id}
+          members={teamMembers ?? []}
+          currentRole={userRole}
         />
       </div>
     </div>
