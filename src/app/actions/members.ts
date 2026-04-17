@@ -3,6 +3,7 @@
 import { cookies } from "next/headers";
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/utils/supabase/server";
+import { createAdminClient } from "@/utils/supabase/admin";
 import { getUserTeamRole } from "@/lib/permissions";
 import { type TeamRole, type TeamMember, TEAM_ROLES } from "@/lib/constants/roles";
 
@@ -71,7 +72,7 @@ export async function addTeamMember(
   teamId: string,
   email: string,
   role: TeamRole,
-): Promise<{ error?: string }> {
+): Promise<{ error?: string; invited?: boolean }> {
   if (!TEAM_ROLES.includes(role)) return { error: "Invalid role." };
   if (role === "owner") return { error: "Cannot assign the Owner role via invite." };
 
@@ -83,40 +84,91 @@ export async function addTeamMember(
     return { error: "Only owners and managers can invite members." };
   }
 
-  // Look up the invitee's user ID via the SECURITY DEFINER function.
-  const { data: targetId, error: lookupError } = await supabase.rpc(
-    "get_user_id_by_email",
-    { p_email: email.trim().toLowerCase() },
-  );
+  const normalizedEmail = email.trim().toLowerCase();
 
-  if (lookupError || !targetId) {
+  // Look up existing user.
+  const { data: targetId } = await supabase.rpc("get_user_id_by_email", {
+    p_email: normalizedEmail,
+  });
+
+  // ── Case A: user already has an account ─────────────────────────────────────
+  if (targetId) {
+    if (targetId === user.id) {
+      return { error: "You are already a member of this team." };
+    }
+
+    const { error: insertError } = await supabase.from("team_members").insert({
+      team_id:    teamId,
+      user_id:    targetId,
+      role,
+      invited_by: user.id,
+    });
+
+    if (insertError) {
+      if (insertError.code === "23505") {
+        return { error: "That user is already a member of this team." };
+      }
+      console.error("addTeamMember insert error:", insertError);
+      return { error: "Could not add member. Please try again." };
+    }
+
+    revalidatePath(`/teams/${teamId}`);
+    return {};
+  }
+
+  // ── Case B: no account — send an invite email ────────────────────────────────
+  const siteUrl =
+    process.env.NEXT_PUBLIC_SITE_URL ??
+    (process.env.NEXT_PUBLIC_SUPABASE_URL?.includes("jmjvhrzgfdhhyhtlgenb")
+      ? "https://rosterlylineups.com"
+      : "http://localhost:3000");
+
+  // Store the pending invitation so the accept page can find it by token.
+  const { data: invite, error: inviteInsertError } = await supabase
+    .from("pending_team_invitations")
+    .insert({
+      team_id:    teamId,
+      email:      normalizedEmail,
+      role,
+      invited_by: user.id,
+    })
+    .select("token")
+    .single();
+
+  if (inviteInsertError || !invite) {
+    console.error("pending invitation insert error:", inviteInsertError);
+    return { error: "Could not create invitation. Please try again." };
+  }
+
+  // Send the invite email via Supabase auth admin.
+  try {
+    const admin = createAdminClient();
+    const redirectTo = `${siteUrl}/auth/callback?next=/accept-invite/${invite.token}`;
+
+    const { error: inviteError } = await admin.auth.admin.inviteUserByEmail(
+      normalizedEmail,
+      { redirectTo },
+    );
+
+    if (inviteError) {
+      console.error("inviteUserByEmail error:", inviteError);
+      // Clean up the pending invitation row so it doesn't linger.
+      await supabase
+        .from("pending_team_invitations")
+        .delete()
+        .eq("token", invite.token);
+      return { error: "Could not send invitation email. Please try again." };
+    }
+  } catch (err) {
+    console.error("Admin client error:", err);
     return {
       error:
-        "No Rosterly account found for that email address. They need to sign up first.",
+        "Email invite is not configured. Add SUPABASE_SERVICE_ROLE_KEY to your environment variables.",
     };
   }
 
-  if (targetId === user.id) {
-    return { error: "You are already a member of this team." };
-  }
-
-  const { error: insertError } = await supabase.from("team_members").insert({
-    team_id:    teamId,
-    user_id:    targetId,
-    role,
-    invited_by: user.id,
-  });
-
-  if (insertError) {
-    if (insertError.code === "23505") {
-      return { error: "That user is already a member of this team." };
-    }
-    console.error("addTeamMember error:", insertError);
-    return { error: "Could not add member. Please try again." };
-  }
-
   revalidatePath(`/teams/${teamId}`);
-  return {};
+  return { invited: true };
 }
 
 // ─── Update member role ───────────────────────────────────────────────────────
@@ -218,6 +270,125 @@ export async function removeTeamMember(
     return { error: "Could not remove member. Please try again." };
   }
 
+  revalidatePath(`/teams/${teamId}`);
+  return {};
+}
+
+// ─── Accept invitation ────────────────────────────────────────────────────────
+
+export async function acceptTeamInvitation(
+  token: string,
+): Promise<{ error?: string; teamId?: string }> {
+  const { supabase, user } = await getAuthenticatedClient();
+  if (!user) return { error: "You must be signed in to accept an invitation." };
+
+  const admin = createAdminClient();
+
+  const { data: invite, error: fetchError } = await admin
+    .from("pending_team_invitations")
+    .select("id, team_id, email, role, accepted_at, expires_at")
+    .eq("token", token)
+    .single();
+
+  if (fetchError || !invite) {
+    return { error: "Invitation not found or has already been used." };
+  }
+
+  if (invite.accepted_at) {
+    return { error: "This invitation has already been accepted." };
+  }
+
+  if (new Date(invite.expires_at) < new Date()) {
+    return { error: "This invitation has expired. Ask the team owner to send a new one." };
+  }
+
+  // Verify the signed-in user's email matches the invitation.
+  const { data: { user: fullUser } } = await admin.auth.admin.getUserById(user.id);
+  const userEmail = fullUser?.email?.toLowerCase() ?? "";
+  if (userEmail !== invite.email.toLowerCase()) {
+    return {
+      error: `This invitation was sent to ${invite.email}. Please sign in with that email address.`,
+    };
+  }
+
+  // Add user to team_members (ignore duplicate — they're already a member).
+  const { error: memberError } = await admin.from("team_members").insert({
+    team_id:    invite.team_id,
+    user_id:    user.id,
+    role:       invite.role,
+    invited_by: null,
+  });
+
+  if (memberError && memberError.code !== "23505") {
+    console.error("acceptTeamInvitation insert error:", memberError);
+    return { error: "Could not join the team. Please try again." };
+  }
+
+  // Mark accepted.
+  await admin
+    .from("pending_team_invitations")
+    .update({ accepted_at: new Date().toISOString() })
+    .eq("token", token);
+
+  revalidatePath(`/teams/${invite.team_id}`);
+  return { teamId: invite.team_id };
+}
+
+// ─── Get pending invitations ──────────────────────────────────────────────────
+
+export type PendingInvitation = {
+  id:         string;
+  email:      string;
+  role:       TeamRole;
+  created_at: string;
+  expires_at: string;
+  token:      string;
+};
+
+export async function getPendingInvitations(
+  teamId: string,
+): Promise<{ data?: PendingInvitation[]; error?: string }> {
+  const { supabase, user } = await getAuthenticatedClient();
+  if (!user) return { error: "You must be signed in." };
+
+  const role = await getUserTeamRole(supabase, user.id, teamId);
+  if (!role || (role !== "owner" && role !== "manager")) {
+    return { error: "Only owners and managers can view invitations." };
+  }
+
+  const { data, error } = await supabase
+    .from("pending_team_invitations")
+    .select("id, email, role, created_at, expires_at, token")
+    .eq("team_id", teamId)
+    .is("accepted_at", null)
+    .gt("expires_at", new Date().toISOString())
+    .order("created_at", { ascending: false });
+
+  if (error) return { error: "Could not load pending invitations." };
+  return { data: (data ?? []) as PendingInvitation[] };
+}
+
+// ─── Cancel pending invitation ────────────────────────────────────────────────
+
+export async function cancelPendingInvitation(
+  teamId: string,
+  invitationId: string,
+): Promise<{ error?: string }> {
+  const { supabase, user } = await getAuthenticatedClient();
+  if (!user) return { error: "You must be signed in." };
+
+  const role = await getUserTeamRole(supabase, user.id, teamId);
+  if (!role || (role !== "owner" && role !== "manager")) {
+    return { error: "Only owners and managers can cancel invitations." };
+  }
+
+  const { error } = await supabase
+    .from("pending_team_invitations")
+    .delete()
+    .eq("id", invitationId)
+    .eq("team_id", teamId);
+
+  if (error) return { error: "Could not cancel invitation." };
   revalidatePath(`/teams/${teamId}`);
   return {};
 }

@@ -55,9 +55,9 @@ export function UpcomingEventsWidget({ upcomingEvents, teamMap, hasTeams }: Prop
   const presentTypes = Array.from(new Set(upcomingEvents.map((e) => e.type)));
 
   return (
-    <div className="flex h-full flex-col rounded-lg border border-border bg-card">
+    <div className="flex flex-col rounded-lg border border-border bg-card" style={{ height: "100%" }}>
       {/* Header */}
-      <div className="flex items-center justify-between border-b border-border px-5 py-3.5">
+      <div className="flex shrink-0 items-center justify-between border-b border-border px-5 py-3.5">
         <div className="flex items-center gap-2">
           <CalendarDays className="h-4 w-4 text-primary" />
           <h2 className="text-sm font-semibold">Upcoming Events</h2>
@@ -71,7 +71,7 @@ export function UpcomingEventsWidget({ upcomingEvents, teamMap, hasTeams }: Prop
 
       {/* Filter chips — only shown when there are multiple types present */}
       {upcomingEvents.length > 0 && presentTypes.length > 1 && (
-        <div className="flex flex-wrap gap-1.5 border-b border-border px-4 py-2.5">
+        <div className="flex shrink-0 flex-wrap gap-1.5 border-b border-border px-4 py-2.5">
           <button
             onClick={() => setFilter("all")}
             className={cn(
@@ -104,7 +104,7 @@ export function UpcomingEventsWidget({ upcomingEvents, teamMap, hasTeams }: Prop
         </div>
       )}
 
-      {/* Content */}
+      {/* Content — scrollable area */}
       {filtered.length === 0 ? (
         <div className="flex flex-1 flex-col items-center justify-center gap-2 px-5 py-10 text-center">
           <CalendarDays className="h-8 w-8 text-muted-foreground/30" />
@@ -120,7 +120,7 @@ export function UpcomingEventsWidget({ upcomingEvents, teamMap, hasTeams }: Prop
           )}
         </div>
       ) : (
-        <ul className="divide-y divide-border overflow-y-auto">
+        <ul className="min-h-0 flex-1 divide-y divide-border overflow-y-auto">
           {filtered.map((event) => {
             const meta    = EVENT_TYPE_META[event.type];
             const days    = daysUntil(event.event_date);

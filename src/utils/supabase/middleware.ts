@@ -54,6 +54,7 @@ export async function updateSession(request: NextRequest) {
     "/lineups",
     "/players",
     "/events",
+    "/accept-invite",
   ];
   const isProtected = protectedPrefixes.some((prefix) => path.startsWith(prefix));
 

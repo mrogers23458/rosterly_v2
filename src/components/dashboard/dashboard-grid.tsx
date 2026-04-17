@@ -72,12 +72,12 @@ function SortableShell({
       ref={setNodeRef}
       style={{ transform: CSS.Transform.toString(transform), transition }}
       className={cn(
-        "flex h-full min-h-[260px] flex-col",
+        "flex min-h-[260px] max-h-[480px] flex-col",
         isDragging && "opacity-30",
       )}
     >
       {/* Control bar */}
-      <div className="flex items-center justify-between rounded-t-lg border border-b-0 border-border bg-muted/40 px-3 py-1.5">
+      <div className="flex shrink-0 items-center justify-between rounded-t-lg border border-b-0 border-border bg-muted/40 px-3 py-1.5">
         <button
           ref={setActivatorNodeRef}
           {...listeners}
@@ -97,7 +97,7 @@ function SortableShell({
       </div>
 
       {/* Widget — fill remaining height, flatten top corners to merge with control bar */}
-      <div className="flex flex-1 flex-col [&>*]:flex-1 [&>*]:rounded-t-none [&>*]:border-t-0">
+      <div className="min-h-0 flex-1 overflow-hidden [&>*]:h-full [&>*]:rounded-t-none [&>*]:border-t-0">
         {children}
       </div>
     </div>

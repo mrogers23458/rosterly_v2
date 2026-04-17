@@ -16,7 +16,7 @@ import { SortableCardGrid } from "@/components/ui/sortable-card-grid";
 import type { GameLineup, Player, Roster, Team } from "@/lib/constants/teams";
 import { getUserTeamRole } from "@/lib/permissions";
 import { ROLE_LABELS, type TeamRole } from "@/lib/constants/roles";
-import { getTeamMembers } from "@/app/actions/members";
+import { getTeamMembers, getPendingInvitations } from "@/app/actions/members";
 
 type Props = { params: Promise<{ id: string }> };
 
@@ -47,6 +47,7 @@ export default async function TeamDetailPage({ params }: Props) {
 
   // Fetch team members (for members panel)
   const { data: teamMembers } = await getTeamMembers(id);
+  const { data: pendingInvites } = await getPendingInvitations(id);
 
   const typedTeam     = team      as Team;
   const typedRosters  = (rosters  ?? []) as Roster[];
@@ -201,6 +202,7 @@ export default async function TeamDetailPage({ params }: Props) {
         <TeamMembersPanel
           teamId={id}
           members={teamMembers ?? []}
+          pendingInvitations={pendingInvites ?? []}
           currentRole={userRole}
         />
       </div>

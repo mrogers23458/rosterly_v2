@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useTransition } from "react";
-import { Users, UserPlus, Trash2 } from "lucide-react";
+import { Users, UserPlus, Trash2, Clock, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
@@ -19,23 +19,35 @@ import {
   ROLE_DESCRIPTIONS,
   type TeamRole,
 } from "@/lib/constants/roles";
-import { addTeamMember, updateMemberRole, removeTeamMember } from "@/app/actions/members";
-import type { TeamMemberWithEmail } from "@/app/actions/members";
+import {
+  addTeamMember,
+  updateMemberRole,
+  removeTeamMember,
+  cancelPendingInvitation,
+} from "@/app/actions/members";
+import type { TeamMemberWithEmail, PendingInvitation } from "@/app/actions/members";
 
 const INVITABLE_ROLES = TEAM_ROLES.filter((r) => r !== "owner");
 
 interface Props {
-  teamId:      string;
-  members:     TeamMemberWithEmail[];
-  currentRole: TeamRole;
+  teamId:             string;
+  members:            TeamMemberWithEmail[];
+  pendingInvitations: PendingInvitation[];
+  currentRole:        TeamRole;
 }
 
-export function TeamMembersPanel({ teamId, members: initialMembers, currentRole }: Props) {
+export function TeamMembersPanel({
+  teamId,
+  members: initialMembers,
+  pendingInvitations: initialPending,
+  currentRole,
+}: Props) {
   const [members, setMembers]         = useState(initialMembers);
+  const [pending, setPending]         = useState(initialPending);
   const [inviteEmail, setInviteEmail] = useState("");
   const [inviteRole, setInviteRole]   = useState<TeamRole>("viewer");
-  const [inviteError, setInviteError] = useState("");
-  const [pending, startTransition]    = useTransition();
+  const [inviteMsg, setInviteMsg]     = useState<{ text: string; type: "error" | "success" } | null>(null);
+  const [isPending, startTransition]  = useTransition();
 
   const [removeTarget, setRemoveTarget] = useState<TeamMemberWithEmail | null>(null);
   const [removeError, setRemoveError]   = useState("");
@@ -46,13 +58,20 @@ export function TeamMembersPanel({ teamId, members: initialMembers, currentRole 
   function handleInvite(e: React.FormEvent) {
     e.preventDefault();
     if (!inviteEmail.trim()) return;
-    setInviteError("");
+    setInviteMsg(null);
 
     startTransition(async () => {
       const res = await addTeamMember(teamId, inviteEmail.trim(), inviteRole);
       if (res.error) {
-        setInviteError(res.error);
+        setInviteMsg({ text: res.error, type: "error" });
+      } else if (res.invited) {
+        setInviteMsg({
+          text: `Invitation sent to ${inviteEmail.trim()}. They'll receive an email to join.`,
+          type: "success",
+        });
+        setInviteEmail("");
       } else {
+        setInviteMsg({ text: "Member added successfully.", type: "success" });
         setInviteEmail("");
       }
     });
@@ -83,6 +102,15 @@ export function TeamMembersPanel({ teamId, members: initialMembers, currentRole 
     });
   }
 
+  function handleCancelInvite(invitationId: string) {
+    startTransition(async () => {
+      const res = await cancelPendingInvitation(teamId, invitationId);
+      if (!res.error) {
+        setPending((prev) => prev.filter((i) => i.id !== invitationId));
+      }
+    });
+  }
+
   return (
     <section>
       <div className="mb-4 flex items-center gap-2">
@@ -91,8 +119,8 @@ export function TeamMembersPanel({ teamId, members: initialMembers, currentRole 
         <Badge variant="muted" className="ml-1">{members.length}</Badge>
       </div>
 
-      {/* Member list */}
-      <div className="mb-6 divide-y divide-border rounded-lg border border-border">
+      {/* Active members list */}
+      <div className="mb-4 divide-y divide-border rounded-lg border border-border">
         {members.length === 0 && (
           <p className="px-4 py-4 text-sm text-muted-foreground">No members yet.</p>
         )}
@@ -108,13 +136,12 @@ export function TeamMembersPanel({ teamId, members: initialMembers, currentRole 
             </div>
 
             <div className="flex shrink-0 items-center gap-2">
-              {/* Role selector — owner can change non-owner roles */}
               {isOwner && member.role !== "owner" ? (
                 <Select
                   className="h-7 w-36 py-0 text-xs"
                   value={member.role}
                   onChange={(e) => handleRoleChange(member, e.target.value as TeamRole)}
-                  disabled={pending}
+                  disabled={isPending}
                 >
                   {INVITABLE_ROLES.map((r) => (
                     <option key={r} value={r}>{ROLE_LABELS[r]}</option>
@@ -126,7 +153,6 @@ export function TeamMembersPanel({ teamId, members: initialMembers, currentRole 
                 </Badge>
               )}
 
-              {/* Remove — owners can remove non-owners; managers can remove viewer/asst-coach */}
               {canManage && member.role !== "owner" && (
                 <Button
                   variant="ghost"
@@ -134,7 +160,7 @@ export function TeamMembersPanel({ teamId, members: initialMembers, currentRole 
                   className="h-7 w-7 text-muted-foreground hover:text-destructive"
                   onClick={() => setRemoveTarget(member)}
                   aria-label="Remove member"
-                  disabled={pending}
+                  disabled={isPending}
                 >
                   <Trash2 className="h-3.5 w-3.5" />
                 </Button>
@@ -143,6 +169,40 @@ export function TeamMembersPanel({ teamId, members: initialMembers, currentRole 
           </div>
         ))}
       </div>
+
+      {/* Pending invitations */}
+      {canManage && pending.length > 0 && (
+        <div className="mb-6">
+          <p className="mb-2 text-xs font-medium uppercase tracking-wide text-muted-foreground">
+            Pending invitations
+          </p>
+          <div className="divide-y divide-border rounded-lg border border-border border-dashed">
+            {pending.map((inv) => (
+              <div key={inv.id} className="flex items-center justify-between gap-3 px-4 py-2.5">
+                <div className="flex min-w-0 items-center gap-2">
+                  <Clock className="h-3.5 w-3.5 shrink-0 text-muted-foreground/50" />
+                  <p className="truncate text-sm text-muted-foreground">{inv.email}</p>
+                </div>
+                <div className="flex shrink-0 items-center gap-2">
+                  <Badge variant="secondary" className="text-xs">
+                    {ROLE_LABELS[inv.role]}
+                  </Badge>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="h-6 w-6 text-muted-foreground/50 hover:text-destructive"
+                    onClick={() => handleCancelInvite(inv.id)}
+                    disabled={isPending}
+                    aria-label="Cancel invitation"
+                  >
+                    <X className="h-3 w-3" />
+                  </Button>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
 
       {/* Invite form */}
       {canManage && (
@@ -155,7 +215,7 @@ export function TeamMembersPanel({ teamId, members: initialMembers, currentRole 
               type="email"
               placeholder="coach@example.com"
               value={inviteEmail}
-              onChange={(e) => setInviteEmail(e.target.value)}
+              onChange={(e) => { setInviteEmail(e.target.value); setInviteMsg(null); }}
               className="h-9 text-sm"
               required
             />
@@ -181,17 +241,19 @@ export function TeamMembersPanel({ teamId, members: initialMembers, currentRole 
           <Button
             type="submit"
             size="sm"
-            disabled={pending || !inviteEmail.trim()}
+            disabled={isPending || !inviteEmail.trim()}
             className="h-9 shrink-0 gap-1.5"
           >
             <UserPlus className="h-3.5 w-3.5" />
-            {pending ? "Adding…" : "Add member"}
+            {isPending ? "Sending…" : "Invite"}
           </Button>
         </form>
       )}
 
-      {inviteError && (
-        <p className="mt-2 text-sm text-destructive">{inviteError}</p>
+      {inviteMsg && (
+        <p className={`mt-2 text-sm ${inviteMsg.type === "error" ? "text-destructive" : "text-emerald-600 dark:text-emerald-400"}`}>
+          {inviteMsg.text}
+        </p>
       )}
 
       {/* Remove confirm dialog */}
@@ -227,9 +289,9 @@ export function TeamMembersPanel({ teamId, members: initialMembers, currentRole 
             <Button
               variant="destructive"
               onClick={handleRemoveConfirm}
-              disabled={pending}
+              disabled={isPending}
             >
-              {pending ? "Removing…" : "Remove"}
+              {isPending ? "Removing…" : "Remove"}
             </Button>
           </div>
         </DialogContent>
