@@ -2,18 +2,18 @@
 
 import {
   AlertTriangle,
+  Building2,
+  CalendarDays,
   CheckCircle2,
   FileSpreadsheet,
   FileText,
   Image,
+  LayoutList,
   Link2,
   Loader2,
   Sparkles,
   Upload,
   Users,
-  CalendarDays,
-  LayoutList,
-  Building2,
 } from "lucide-react";
 import Link from "next/link";
 import { useCallback, useRef, useState, useTransition } from "react";
@@ -35,12 +35,16 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Select } from "@/components/ui/select";
+import { AGE_GROUPS, SEASONS } from "@/lib/constants/teams";
 import { cn } from "@/lib/utils";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
 type InputMode = "file" | "sheets";
-type Step = "upload" | "extracting" | "review" | "importing" | "done";
+type Step = "upload" | "extracting" | "review" | "fill" | "importing" | "done";
 
 type ImportResult = {
   teamId?: string;
@@ -116,6 +120,12 @@ export function AiImportModal({ open, onOpenChange, preselectedTeamId, defaultIn
   const [importPlayers, setImportPlayers] = useState(true);
   const [createLineup,  setCreateLineup]  = useState(true);
 
+  // "fill" step — user-provided overrides for missing required fields
+  const [fillTeamName,     setFillTeamName]     = useState("");
+  const [fillTeamYear,     setFillTeamYear]      = useState(new Date().getFullYear().toString());
+  const [fillTeamSeason,   setFillTeamSeason]    = useState("");
+  const [fillTeamAgeGroup, setFillTeamAgeGroup]  = useState("");
+
   const [isPending, startTransition] = useTransition();
 
   function reset() {
@@ -130,6 +140,10 @@ export function AiImportModal({ open, onOpenChange, preselectedTeamId, defaultIn
     setCreateRoster(true);
     setImportPlayers(true);
     setCreateLineup(true);
+    setFillTeamName("");
+    setFillTeamYear(new Date().getFullYear().toString());
+    setFillTeamSeason("");
+    setFillTeamAgeGroup("");
   }
 
   function handleClose(v: boolean) {
@@ -196,23 +210,77 @@ export function AiImportModal({ open, onOpenChange, preselectedTeamId, defaultIn
     });
   }
 
-  // ── Import ──────────────────────────────────────────────────────────────────
+  // ── Validation ──────────────────────────────────────────────────────────────
+
+  /**
+   * Returns true if the selected options will resolve a valid teamId
+   * without asking the user for extra info.
+   */
+  function teamWillResolve(ex: ExtractionResult): boolean {
+    if (preselectedTeamId) return true;
+    if (createTeam && !!ex.team.name) return true;
+    return false;
+  }
+
+  /** True when at least one option needs a team but none is resolvable. */
+  function needsTeamFill(ex: ExtractionResult): boolean {
+    const wantsTeamRecord = createRoster || importPlayers || createLineup;
+    return wantsTeamRecord && !teamWillResolve(ex);
+  }
+
+  // ── Import — validates first, goes to "fill" if info is missing ───────────
 
   function handleImport() {
     if (!extraction) return;
     setError(null);
+
+    if (needsTeamFill(extraction)) {
+      // Pre-populate fill fields from whatever AI did find
+      setFillTeamName(extraction.team.name ?? "");
+      setFillTeamYear(extraction.team.year ?? new Date().getFullYear().toString());
+      setFillTeamSeason(extraction.team.season ?? "");
+      setFillTeamAgeGroup(extraction.team.age_group ?? "");
+      setStep("fill");
+      return;
+    }
+
+    runImport(extraction);
+  }
+
+  function handleConfirmFill() {
+    if (!extraction || !fillTeamName.trim()) return;
+    // Merge user-provided info into the extraction so the import action
+    // uses it instead of the original (potentially null) values.
+    const patched: ExtractionResult = {
+      ...extraction,
+      team: {
+        ...extraction.team,
+        name:      fillTeamName.trim()   || extraction.team.name,
+        year:      fillTeamYear.trim()   || extraction.team.year,
+        season:    fillTeamSeason        || extraction.team.season,
+        age_group: fillTeamAgeGroup      || extraction.team.age_group,
+      },
+    };
+    // Make sure "create team" is enabled so the patched team actually gets created
+    setCreateTeam(true);
+    setExtraction(patched);
+    runImport(patched, true);
+  }
+
+  function runImport(ex: ExtractionResult, forceCreateTeam?: boolean) {
+    setError(null);
     setStep("importing");
 
     const options: ImportOptions = {
-      createTeam,
+      createTeam:    forceCreateTeam ?? createTeam,
       createRoster,
       importPlayers,
       createLineup,
-      existingTeamId: !createTeam ? preselectedTeamId : undefined,
+      existingTeamId: !createTeam && !forceCreateTeam ? preselectedTeamId : undefined,
     };
 
     startTransition(async () => {
-      const res = await importExtractedData(extraction, options);
+      const res = await importExtractedData(ex, options);
       if (res.error) {
         setError(res.error);
         setStep("review");
@@ -225,7 +293,7 @@ export function AiImportModal({ open, onOpenChange, preselectedTeamId, defaultIn
 
   // ── Render ──────────────────────────────────────────────────────────────────
 
-  const isWide = step === "review";
+  const isWide = step === "review" || step === "fill";
 
   return (
     <Dialog open={open} onOpenChange={handleClose}>
@@ -645,6 +713,104 @@ export function AiImportModal({ open, onOpenChange, preselectedTeamId, defaultIn
                   </div>
                 </>
               )}
+            </div>
+          )}
+
+          {/* ── Fill required info ──────────────────────────────────────────── */}
+          {step === "fill" && (
+            <div className="flex flex-col gap-5">
+              <div className="flex items-start gap-3 rounded-lg border border-amber-200 bg-amber-50 px-4 py-3.5 dark:border-amber-900/30 dark:bg-amber-900/10">
+                <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-amber-600 dark:text-amber-400" />
+                <div>
+                  <p className="text-sm font-semibold text-amber-900 dark:text-amber-200">
+                    A few details are needed
+                  </p>
+                  <p className="mt-0.5 text-xs text-amber-800 dark:text-amber-300">
+                    The AI couldn&apos;t identify enough team information from your file. Fill in the fields below to continue — everything else the AI found will be imported normally.
+                  </p>
+                </div>
+              </div>
+
+              <div className="rounded-lg border border-border bg-muted/30 p-4">
+                <p className="mb-3 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                  Team information
+                </p>
+                <div className="flex flex-col gap-3">
+                  <div className="flex flex-col gap-1">
+                    <Label htmlFor="fill-team-name">
+                      Team name <span className="text-destructive">*</span>
+                    </Label>
+                    <Input
+                      id="fill-team-name"
+                      value={fillTeamName}
+                      onChange={(e) => setFillTeamName(e.target.value)}
+                      placeholder="e.g. Spokane Nationals"
+                      autoFocus
+                    />
+                  </div>
+                  <div className="grid grid-cols-2 gap-3">
+                    <div className="flex flex-col gap-1">
+                      <Label htmlFor="fill-team-year">Year</Label>
+                      <Input
+                        id="fill-team-year"
+                        value={fillTeamYear}
+                        onChange={(e) => setFillTeamYear(e.target.value)}
+                        maxLength={4}
+                        placeholder="2026"
+                      />
+                    </div>
+                    <div className="flex flex-col gap-1">
+                      <Label htmlFor="fill-team-season">Season</Label>
+                      <Select
+                        id="fill-team-season"
+                        value={fillTeamSeason}
+                        onChange={(e) => setFillTeamSeason(e.target.value)}
+                      >
+                        <option value="">—</option>
+                        {SEASONS.map((s) => (
+                          <option key={s} value={s}>{s}</option>
+                        ))}
+                      </Select>
+                    </div>
+                  </div>
+                  <div className="flex flex-col gap-1">
+                    <Label htmlFor="fill-age-group">
+                      Age group <span className="text-destructive">*</span>
+                    </Label>
+                    <Select
+                      id="fill-age-group"
+                      value={fillTeamAgeGroup}
+                      onChange={(e) => setFillTeamAgeGroup(e.target.value)}
+                    >
+                      <option value="">Select…</option>
+                      {AGE_GROUPS.map((a) => (
+                        <option key={a} value={a}>{a}</option>
+                      ))}
+                    </Select>
+                  </div>
+                </div>
+              </div>
+
+              <div className="flex flex-col-reverse gap-3 sm:flex-row">
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="lg"
+                  className="flex-1"
+                  onClick={() => setStep("review")}
+                >
+                  Back to review
+                </Button>
+                <Button
+                  type="button"
+                  size="lg"
+                  className="flex-1"
+                  disabled={!fillTeamName.trim() || isPending}
+                  onClick={handleConfirmFill}
+                >
+                  Continue import →
+                </Button>
+              </div>
             </div>
           )}
 
