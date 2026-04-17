@@ -1,8 +1,8 @@
 import { cookies } from "next/headers";
 import { createClient } from "@/utils/supabase/server";
-import { AiSetupWidget } from "@/components/import/ai-setup-widget";
 import { TeamsArchivedSection } from "@/components/teams/teams-archived-section";
 import { TeamsDirectory } from "@/components/teams/teams-directory";
+import { TeamsEmptyState } from "@/components/teams/teams-empty-state";
 import { TeamsPageToolbar } from "@/components/teams/teams-page-toolbar";
 import type { Team } from "@/lib/constants/teams";
 
@@ -37,9 +37,7 @@ export default async function TeamsPage() {
       )}
 
       {!error && activeTeams.length === 0 && archivedTeams.length === 0 && (
-        <div className="mb-6 max-w-xl">
-          <AiSetupWidget />
-        </div>
+        <TeamsEmptyState />
       )}
 
       {!error && activeTeams.length > 0 && <TeamsDirectory teams={activeTeams} />}
