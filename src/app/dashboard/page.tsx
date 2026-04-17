@@ -67,14 +67,6 @@ export default async function DashboardPage() {
     <div className="px-4 py-8 sm:px-6 md:px-8">
       <h1 className="mb-6 text-2xl font-bold tracking-tight sm:text-3xl">Dashboard</h1>
 
-      {/* ── No teams: setup widgets ── */}
-      {!hasTeams && (
-        <div className="mb-8 grid grid-cols-1 gap-4 sm:grid-cols-2">
-          <AiSetupWidget />
-          <ManualSetupWidget />
-        </div>
-      )}
-
       {/* ── Widgets grid ── */}
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
 
@@ -150,10 +142,11 @@ export default async function DashboardPage() {
           </div>
         </div>
 
-        {/* Right column — weather + AI setup widget (always visible) */}
+        {/* Right column — always visible */}
         <div className="flex flex-col gap-4 lg:col-span-1">
           <WeatherWidget />
           <AiSetupWidget />
+          <ManualSetupWidget />
         </div>
       </div>
 
