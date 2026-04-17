@@ -22,9 +22,10 @@ import { useEffect, useState } from "react";
 import { ManualSetupWidget } from "@/components/dashboard/manual-setup-widget";
 import { WeatherWidget } from "@/components/dashboard/weather-widget";
 import { WidgetManagerModal, WIDGET_REGISTRY } from "@/components/dashboard/widget-manager-modal";
-import { UpcomingGamesWidget } from "@/components/dashboard/widgets/upcoming-games-widget";
+import { UpcomingEventsWidget } from "@/components/dashboard/widgets/upcoming-events-widget";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
+import type { TeamEvent } from "@/lib/constants/events";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -38,19 +39,11 @@ type StoredState = { order: WidgetId[]; hidden: WidgetId[] };
 
 // ─── Data props (passed from server page) ─────────────────────────────────────
 
-type Lineup = {
-  id: string;
-  name: string;
-  game_date: string | null;
-  team_id: string;
-  inning_count: number;
-};
-
 export type DashboardGridProps = {
-  upcomingLineups: Lineup[];
-  teamMap: Record<string, string>;
-  hasTeams: boolean;
-  userEmail?: string;
+  upcomingEvents: TeamEvent[];
+  teamMap:        Record<string, string>;
+  hasTeams:       boolean;
+  userEmail?:     string;
 };
 
 // ─── Sortable widget shell ────────────────────────────────────────────────────
@@ -126,7 +119,7 @@ function OverlayPill({ id }: { id: WidgetId }) {
 // ─── Main grid component ──────────────────────────────────────────────────────
 
 export function DashboardGrid({
-  upcomingLineups,
+  upcomingEvents,
   teamMap,
   hasTeams,
   userEmail,
@@ -196,8 +189,8 @@ export function DashboardGrid({
   // ── Widget content map ───────────────────────────────────────────────────────
   const widgetContent: Record<WidgetId, React.ReactNode> = {
     "upcoming-games": (
-      <UpcomingGamesWidget
-        upcomingLineups={upcomingLineups}
+      <UpcomingEventsWidget
+        upcomingEvents={upcomingEvents}
         teamMap={teamMap}
         hasTeams={hasTeams}
       />

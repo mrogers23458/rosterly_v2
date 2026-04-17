@@ -17,8 +17,8 @@ export const WIDGET_REGISTRY: {
 }[] = [
   {
     id:          "upcoming-games",
-    label:       "Upcoming Games",
-    description: "Next scheduled game lineups with dates",
+    label:       "Upcoming Events",
+    description: "Scheduled games, practices, and more",
     icon:        <CalendarDays className="h-4 w-4" />,
   },
   {
