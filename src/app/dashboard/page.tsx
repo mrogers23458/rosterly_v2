@@ -2,6 +2,7 @@ import { CalendarDays, Plus } from "lucide-react";
 import Link from "next/link";
 import { cookies } from "next/headers";
 import { createClient } from "@/utils/supabase/server";
+import { AiSetupWidget } from "@/components/import/ai-setup-widget";
 import { WeatherWidget } from "@/components/dashboard/weather-widget";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -68,19 +69,19 @@ export default async function DashboardPage() {
 
       {/* ── No teams yet ── */}
       {!hasTeams && (
-        <div className="mb-8 rounded-lg border border-border bg-card p-6 sm:p-8">
-          <div className="flex flex-col items-start gap-3">
-            <h2 className="text-lg font-semibold">You don&apos;t have any teams yet.</h2>
-            <p className="text-sm text-muted-foreground">
-              Create your first team to start organizing rosters, schedules, and lineups in one place.
-            </p>
-            <Button asChild size="lg" className="mt-1">
-              <Link href="/teams/new">
-                <Plus className="h-4 w-4" />
-                Create team
-              </Link>
-            </Button>
+        <div className="mb-8 flex flex-col gap-4">
+          <AiSetupWidget />
+          <div className="flex items-center gap-3">
+            <div className="h-px flex-1 bg-border" />
+            <span className="text-xs text-muted-foreground">or set up manually</span>
+            <div className="h-px flex-1 bg-border" />
           </div>
+          <Button asChild variant="outline" className="w-full sm:w-auto">
+            <Link href="/teams/new">
+              <Plus className="h-4 w-4" />
+              Create team manually
+            </Link>
+          </Button>
         </div>
       )}
 
@@ -164,9 +165,10 @@ export default async function DashboardPage() {
           </div>
         </div>
 
-        {/* Weather — takes 1/3 on large screens */}
-        <div className="lg:col-span-1">
+        {/* Right column — weather + AI setup widget */}
+        <div className="flex flex-col gap-4 lg:col-span-1">
           <WeatherWidget />
+          <AiSetupWidget />
         </div>
       </div>
 

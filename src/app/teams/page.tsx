@@ -1,5 +1,6 @@
 import { cookies } from "next/headers";
 import { createClient } from "@/utils/supabase/server";
+import { AiSetupWidget } from "@/components/import/ai-setup-widget";
 import { TeamsArchivedSection } from "@/components/teams/teams-archived-section";
 import { TeamsDirectory } from "@/components/teams/teams-directory";
 import { TeamsPageToolbar } from "@/components/teams/teams-page-toolbar";
@@ -36,9 +37,9 @@ export default async function TeamsPage() {
       )}
 
       {!error && activeTeams.length === 0 && archivedTeams.length === 0 && (
-        <p className="mb-4 text-sm text-muted-foreground">
-          No teams yet. Use the buttons above to create your first team or import one from GameChanger.
-        </p>
+        <div className="mb-6 max-w-xl">
+          <AiSetupWidget />
+        </div>
       )}
 
       {!error && activeTeams.length > 0 && <TeamsDirectory teams={activeTeams} />}
