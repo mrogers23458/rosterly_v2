@@ -231,6 +231,7 @@ function LineupCard({
 }) {
   return (
     <div className="group relative flex h-full min-h-0 flex-col gap-2 rounded-lg border border-border bg-card p-4 transition-all duration-150 hover:-translate-y-0.5 hover:shadow-md hover:border-primary/30">
+      <Link href={`/lineups/${lineup.id}`} className="absolute inset-0 rounded-lg" />
       <div className="flex shrink-0 items-start justify-between gap-2">
         <h3 className="text-sm font-semibold leading-snug group-hover:text-primary transition-colors">
           {lineup.name}

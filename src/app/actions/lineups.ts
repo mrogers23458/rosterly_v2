@@ -70,6 +70,7 @@ export async function createLineup(input: CreateLineupInput): Promise<LineupActi
 
   revalidatePath(`/teams/${input.teamId}`);
   revalidatePath("/lineups");
+  revalidatePath(`/lineups/${lineup.id}`);
   return { success: true, lineupId: lineup.id };
 }
 
@@ -164,6 +165,8 @@ export async function updateLineupFull(input: UpdateLineupFullInput): Promise<Li
   }
 
   revalidatePath(`/teams/${input.teamId}`);
+  revalidatePath("/lineups");
+  revalidatePath(`/lineups/${input.lineupId}`);
   return { success: true, lineupId: input.lineupId };
 }
 
@@ -221,6 +224,8 @@ export async function setLineupArchived(
 
   if (error) return { error: error.message };
   revalidatePath(`/teams/${teamId}`);
+  revalidatePath("/lineups");
+  revalidatePath(`/lineups/${lineupId}`);
   return {};
 }
 
@@ -247,5 +252,6 @@ export async function deleteLineup(
   }
 
   revalidatePath(`/teams/${teamId}`);
+  revalidatePath("/lineups");
   return {};
 }

@@ -13,9 +13,9 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import type { GameLineup } from "@/lib/constants/teams";
 
-type Props = { lineup: GameLineup; open: boolean; onOpenChange: (v: boolean) => void };
+type Props = { lineup: GameLineup; open: boolean; onOpenChange: (v: boolean) => void; redirectTo?: string };
 
-export function DeleteLineupModal({ lineup, open, onOpenChange }: Props) {
+export function DeleteLineupModal({ lineup, open, onOpenChange, redirectTo }: Props) {
   const router = useRouter();
   const [confirmation, setConfirmation] = useState("");
   const [error, setError]               = useState<string | null>(null);
@@ -33,8 +33,12 @@ export function DeleteLineupModal({ lineup, open, onOpenChange }: Props) {
     startTransition(async () => {
       const result = await deleteLineup(lineup.id, lineup.team_id);
       if (result.error) { setError(result.error); return; }
-      router.refresh();
-      onOpenChange(false);
+      if (redirectTo) {
+        router.push(redirectTo);
+      } else {
+        router.refresh();
+        onOpenChange(false);
+      }
     });
   }
 

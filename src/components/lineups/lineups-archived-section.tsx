@@ -1,6 +1,7 @@
 "use client";
 
 import { ChevronDown, ChevronRight, LayoutList } from "lucide-react";
+import Link from "next/link";
 import { useState } from "react";
 import { LineupCardActions } from "@/components/lineups/lineup-card-actions";
 import { Badge } from "@/components/ui/badge";
@@ -38,11 +39,12 @@ export function LineupsArchivedSection({ lineups, rosterNameMap, activeRosters, 
           {lineups.map((lineup) => (
             <div
               key={lineup.id}
-              className="relative flex h-full min-h-0 flex-col gap-2 rounded-lg border border-border bg-card/60 p-4 opacity-70 transition-all duration-150 hover:opacity-100 hover:-translate-y-0.5 hover:shadow-md"
+              className="group relative flex h-full min-h-0 flex-col gap-2 rounded-lg border border-border bg-card/60 p-4 opacity-70 transition-all duration-150 hover:opacity-100 hover:-translate-y-0.5 hover:shadow-md"
             >
+              <Link href={`/lineups/${lineup.id}`} className="absolute inset-0 rounded-lg" />
               <div className="flex shrink-0 items-start justify-between gap-2">
                 <h3 className="text-sm font-semibold leading-snug">{lineup.name}</h3>
-                <div className="relative z-10 flex items-center gap-1">
+                <div className="relative z-10 flex shrink-0 items-center gap-1">
                   <Badge variant="muted">Archived</Badge>
                   <LineupCardActions
                     lineup={lineup}

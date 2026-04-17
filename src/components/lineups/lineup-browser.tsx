@@ -143,7 +143,7 @@ function LineupCard({
   rosters: Roster[];
   rosterPlayersMap: Record<string, Player[]>;
 }) {
-  const href = lineup.team_id ? `/teams/${lineup.team_id}` : "/lineups";
+  const href = `/lineups/${lineup.id}`;
 
   const activeRostersForTeam = useMemo(() => {
     if (!lineup.team_id) return [];
