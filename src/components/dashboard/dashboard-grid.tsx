@@ -19,7 +19,6 @@ import {
 import { CSS } from "@dnd-kit/utilities";
 import { GripVertical, LayoutDashboard, Plus, X } from "lucide-react";
 import { useEffect, useState } from "react";
-import { AiSetupWidget } from "@/components/import/ai-setup-widget";
 import { ManualSetupWidget } from "@/components/dashboard/manual-setup-widget";
 import { WeatherWidget } from "@/components/dashboard/weather-widget";
 import { WidgetManagerModal, WIDGET_REGISTRY } from "@/components/dashboard/widget-manager-modal";
@@ -29,11 +28,11 @@ import { cn } from "@/lib/utils";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
-export type WidgetId = "upcoming-games" | "weather" | "ai-setup" | "manual-setup";
+export type WidgetId = "upcoming-games" | "weather" | "manual-setup";
 
-const DEFAULT_ORDER: WidgetId[]   = ["upcoming-games", "weather", "ai-setup", "manual-setup"];
+const DEFAULT_ORDER: WidgetId[]   = ["upcoming-games", "weather", "manual-setup"];
 const DEFAULT_HIDDEN: WidgetId[]  = [];
-const STORAGE_KEY = "rosterly-dashboard-v1";
+const STORAGE_KEY = "rosterly-dashboard-v2";
 
 type StoredState = { order: WidgetId[]; hidden: WidgetId[] };
 
@@ -200,9 +199,8 @@ export function DashboardGrid({
         hasTeams={hasTeams}
       />
     ),
-    "weather":        <WeatherWidget />,
-    "ai-setup":       <AiSetupWidget />,
-    "manual-setup":   <ManualSetupWidget />,
+    "weather":      <WeatherWidget />,
+    "manual-setup": <ManualSetupWidget />,
   };
 
   // ── Render ───────────────────────────────────────────────────────────────────

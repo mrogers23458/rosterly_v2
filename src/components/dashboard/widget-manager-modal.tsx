@@ -1,6 +1,6 @@
 "use client";
 
-import { CalendarDays, ClipboardList, Cloud, Sparkles } from "lucide-react";
+import { CalendarDays, ClipboardList, Cloud } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   Dialog, DialogBody, DialogContent,
@@ -26,12 +26,6 @@ export const WIDGET_REGISTRY: {
     label:       "Local Weather",
     description: "Current conditions for your location",
     icon:        <Cloud className="h-4 w-4" />,
-  },
-  {
-    id:          "ai-setup",
-    label:       "Set up with AI",
-    description: "Import a team, roster, or lineup using AI",
-    icon:        <Sparkles className="h-4 w-4" />,
   },
   {
     id:          "manual-setup",
