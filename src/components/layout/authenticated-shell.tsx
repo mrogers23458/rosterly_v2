@@ -1,6 +1,7 @@
 "use client";
 
 import {
+  CalendarDays,
   ClipboardList,
   LayoutDashboard,
   LayoutList,
@@ -54,6 +55,12 @@ const navItems: NavItem[] = [
     href: "/lineups",
     icon: LayoutList,
     matchFn: (p) => p === "/lineups" || p.startsWith("/lineups/"),
+  },
+  {
+    label: "Events",
+    href: "/events",
+    icon: CalendarDays,
+    matchFn: (p) => p === "/events" || p.startsWith("/events/"),
   },
 ];
 
