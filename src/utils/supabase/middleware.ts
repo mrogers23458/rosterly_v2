@@ -3,9 +3,10 @@ import { NextResponse, type NextRequest } from "next/server";
 import { getSupabasePublishableKey, getSupabaseUrl } from "./env";
 
 export async function updateSession(request: NextRequest) {
-  let supabaseResponse = NextResponse.next({
-    request,
-  });
+  let supabaseResponse = NextResponse.next({ request });
+  // Accumulate any cache-control headers emitted by @supabase/ssr v0.10+
+  // (prevents Vercel/CDN from caching Set-Cookie headers and leaking sessions)
+  let pendingCacheHeaders: Record<string, string> = {};
 
   const supabaseUrl = getSupabaseUrl();
   const supabaseKey = getSupabasePublishableKey();
@@ -15,27 +16,45 @@ export async function updateSession(request: NextRequest) {
       getAll() {
         return request.cookies.getAll();
       },
-      setAll(cookiesToSet) {
+      setAll(cookiesToSet, cacheHeaders) {
         cookiesToSet.forEach(({ name, value }) =>
           request.cookies.set(name, value),
         );
-        supabaseResponse = NextResponse.next({
-          request,
-        });
+        supabaseResponse = NextResponse.next({ request });
         cookiesToSet.forEach(({ name, value, options }) =>
           supabaseResponse.cookies.set(name, value, options),
         );
+        // Collect cache headers from the library (Cache-Control, Expires, Pragma)
+        if (cacheHeaders) {
+          pendingCacheHeaders = { ...pendingCacheHeaders, ...cacheHeaders };
+        }
       },
     },
   });
 
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  // getClaims() validates the JWT locally and triggers a refresh if needed —
+  // faster than getUser() (no extra network round-trip) and correct for middleware.
+  const { data: { user } } = await supabase.auth.getUser();
+
+  // Apply cache headers so Vercel/CDNs never cache session-bearing responses
+  Object.entries(pendingCacheHeaders).forEach(([key, value]) =>
+    supabaseResponse.headers.set(key, value),
+  );
+  // Belt-and-suspenders: always mark middleware responses as private
+  if (!supabaseResponse.headers.has("Cache-Control")) {
+    supabaseResponse.headers.set("Cache-Control", "private, no-store");
+  }
 
   const path = request.nextUrl.pathname;
 
-  const protectedPrefixes = ["/dashboard", "/teams", "/rosters", "/lineups", "/players"];
+  const protectedPrefixes = [
+    "/dashboard",
+    "/teams",
+    "/rosters",
+    "/lineups",
+    "/players",
+    "/events",
+  ];
   const isProtected = protectedPrefixes.some((prefix) => path.startsWith(prefix));
 
   if (!user && isProtected) {
