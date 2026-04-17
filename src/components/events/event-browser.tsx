@@ -2,7 +2,7 @@
 
 import {
   CalendarDays, Clock, LayoutList, MapPin,
-  Plus, Search, Users,
+  Plus, Repeat, Search, Users,
 } from "lucide-react";
 import Link from "next/link";
 import { useMemo, useState } from "react";
@@ -96,9 +96,17 @@ function EventCard({
         aria-label={`View ${event.title}`}
       />
 
-      {/* Top row: badge + actions */}
+      {/* Top row: badge + recurring indicator + actions */}
       <div className="flex shrink-0 items-start justify-between gap-2">
-        <EventTypeBadge type={event.type} />
+        <div className="flex items-center gap-1.5">
+          <EventTypeBadge type={event.type} />
+          {event.recurrence_group_id && (
+            <span className="inline-flex items-center gap-0.5 rounded-full border border-border bg-muted/50 px-1.5 py-0.5 text-[10px] text-muted-foreground">
+              <Repeat className="h-2.5 w-2.5" />
+              Recurring
+            </span>
+          )}
+        </div>
         <div className="relative z-10 flex shrink-0 items-center gap-1">
           <EventCardActions event={event} teams={teams} rosters={rosters} lineups={lineups} />
         </div>

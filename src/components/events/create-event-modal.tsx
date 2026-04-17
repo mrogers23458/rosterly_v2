@@ -11,7 +11,7 @@ import {
   DialogDescription, DialogHeader, DialogTitle,
 } from "@/components/ui/dialog";
 import { EventFormFields } from "@/components/events/event-form-fields";
-import type { EventType } from "@/lib/constants/events";
+import type { EventType, RecurrenceType } from "@/lib/constants/events";
 import type { GameLineup, Roster, Team } from "@/lib/constants/teams";
 
 type Props = {
@@ -40,6 +40,8 @@ export function CreateEventModal({
   const [teamId,     setTeamId]     = useState(defaultTeamId);
   const [rosterId,   setRosterId]   = useState("");
   const [lineupId,   setLineupId]   = useState("");
+  const [recurrenceType,    setRecurrenceType]    = useState<RecurrenceType | null>(null);
+  const [recurrenceEndDate, setRecurrenceEndDate] = useState("");
   const [done,       setDone]       = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [isPending,  startTransition] = useTransition();
@@ -57,6 +59,8 @@ export function CreateEventModal({
     setTeamId(defaultTeamId);
     setRosterId("");
     setLineupId("");
+    setRecurrenceType(null);
+    setRecurrenceEndDate("");
     setDone(false);
     setSubmitError(null);
   }
@@ -69,6 +73,14 @@ export function CreateEventModal({
   function handleSubmit() {
     if (!title.trim() || !eventDate) {
       setSubmitError("Title and date are required.");
+      return;
+    }
+    if (recurrenceType && !recurrenceEndDate) {
+      setSubmitError("Please set an end date for the recurring event.");
+      return;
+    }
+    if (recurrenceType && recurrenceEndDate && recurrenceEndDate <= eventDate) {
+      setSubmitError("Recurrence end date must be after the start date.");
       return;
     }
 
@@ -87,6 +99,8 @@ export function CreateEventModal({
         location:   location  || null,
         notes:      notes     || null,
         is_home:    isHome,
+        recurrence_type:     recurrenceType,
+        recurrence_end_date: recurrenceEndDate || null,
       });
 
       if (res.error || !res.data) {
@@ -113,7 +127,9 @@ export function CreateEventModal({
           {done ? (
             <div className="flex flex-col items-center gap-3 py-8 text-center">
               <CheckCircle2 className="h-10 w-10 text-green-500" />
-              <p className="font-semibold">Event created!</p>
+              <p className="font-semibold">
+                {recurrenceType ? "Recurring events created!" : "Event created!"}
+              </p>
               <Button onClick={() => handleOpenChange(false)}>Done</Button>
             </div>
           ) : (
@@ -131,6 +147,10 @@ export function CreateEventModal({
                 teamId={teamId}       onTeamId={setTeamId}
                 rosterId={rosterId}   onRosterId={setRosterId}
                 lineupId={lineupId}   onLineupId={setLineupId}
+                recurrenceType={recurrenceType}
+                recurrenceEndDate={recurrenceEndDate}
+                onRecurrenceType={setRecurrenceType}
+                onRecurrenceEndDate={setRecurrenceEndDate}
                 teams={teams}
                 rosters={rosters}
                 lineups={lineups}

@@ -37,6 +37,15 @@ export const EVENT_TYPE_META: Record<
   },
 };
 
+export const RECURRENCE_TYPES = ["daily", "weekly", "monthly"] as const;
+export type RecurrenceType = (typeof RECURRENCE_TYPES)[number];
+
+export const RECURRENCE_TYPE_LABELS: Record<RecurrenceType, string> = {
+  daily:   "Daily",
+  weekly:  "Weekly",
+  monthly: "Monthly",
+};
+
 export type TeamEvent = {
   id:         string;
   user_id:    string;
@@ -53,6 +62,9 @@ export type TeamEvent = {
   notes:      string | null;
   is_home:    boolean;
   is_archived: boolean;
+  recurrence_type:      RecurrenceType | null;
+  recurrence_end_date:  string | null;
+  recurrence_group_id:  string | null;
   created_at: string;
   updated_at: string;
 };
@@ -70,6 +82,11 @@ export type CreateEventInput = {
   location:   string | null;
   notes:      string | null;
   is_home:    boolean;
+  recurrence_type:     RecurrenceType | null;
+  recurrence_end_date: string | null;
 };
 
-export type UpdateEventInput = CreateEventInput & { id: string };
+export type UpdateEventInput = Omit<CreateEventInput, "recurrence_type" | "recurrence_end_date"> & {
+  id:                  string;
+  recurrence_group_id: string | null;
+};

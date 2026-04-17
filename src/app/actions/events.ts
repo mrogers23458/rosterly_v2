@@ -3,7 +3,12 @@
 import { cookies } from "next/headers";
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/utils/supabase/server";
-import type { CreateEventInput, TeamEvent, UpdateEventInput } from "@/lib/constants/events";
+import type {
+  CreateEventInput,
+  RecurrenceType,
+  TeamEvent,
+  UpdateEventInput,
+} from "@/lib/constants/events";
 
 async function getAuthenticatedClient() {
   const cookieStore = await cookies();
@@ -16,29 +21,82 @@ async function getAuthenticatedClient() {
   return { supabase, user };
 }
 
+/** Generate every occurrence date between startDate and endDate (inclusive), capped at 104. */
+function generateRecurringDates(
+  startDate: string,
+  endDate: string,
+  type: RecurrenceType,
+): string[] {
+  const dates: string[] = [];
+  const end = new Date(endDate + "T00:00:00");
+  const current = new Date(startDate + "T00:00:00");
+  const MAX = 104; // ~2 years of weekly events
+
+  while (current <= end && dates.length < MAX) {
+    dates.push(current.toISOString().slice(0, 10));
+    if (type === "daily")        current.setDate(current.getDate() + 1);
+    else if (type === "weekly")  current.setDate(current.getDate() + 7);
+    else if (type === "monthly") current.setMonth(current.getMonth() + 1);
+  }
+  return dates;
+}
+
 export async function createEvent(
   input: CreateEventInput,
 ): Promise<{ data: TeamEvent | null; error: string | null }> {
   try {
     const { supabase, user } = await getAuthenticatedClient();
 
+    const base = {
+      user_id:    user.id,
+      team_id:    input.team_id    || null,
+      roster_id:  input.roster_id  || null,
+      lineup_id:  input.lineup_id  || null,
+      type:       input.type,
+      title:      input.title.trim(),
+      opponent:   input.opponent?.trim()   || null,
+      start_time: input.start_time?.trim() || null,
+      end_time:   input.end_time?.trim()   || null,
+      location:   input.location?.trim()   || null,
+      notes:      input.notes?.trim()      || null,
+      is_home:    input.is_home,
+    };
+
+    // ── Recurring: insert one row per occurrence ──────────────────────────
+    if (input.recurrence_type && input.recurrence_end_date) {
+      const groupId = crypto.randomUUID();
+      const dates   = generateRecurringDates(
+        input.event_date,
+        input.recurrence_end_date,
+        input.recurrence_type,
+      );
+
+      const rows = dates.map((date) => ({
+        ...base,
+        event_date:          date,
+        recurrence_type:     input.recurrence_type,
+        recurrence_end_date: input.recurrence_end_date,
+        recurrence_group_id: groupId,
+      }));
+
+      const { data, error } = await supabase
+        .from("events")
+        .insert(rows)
+        .select()
+        .limit(1)
+        .single();
+
+      if (error) return { data: null, error: error.message };
+
+      revalidatePath("/events");
+      if (input.team_id) revalidatePath(`/teams/${input.team_id}`);
+      return { data: data as TeamEvent, error: null };
+    }
+
+    // ── Single event ──────────────────────────────────────────────────────
     const { data, error } = await supabase
       .from("events")
-      .insert({
-        user_id:    user.id,
-        team_id:    input.team_id    || null,
-        roster_id:  input.roster_id  || null,
-        lineup_id:  input.lineup_id  || null,
-        type:       input.type,
-        title:      input.title.trim(),
-        opponent:   input.opponent?.trim()   || null,
-        event_date: input.event_date,
-        start_time: input.start_time?.trim() || null,
-        end_time:   input.end_time?.trim()   || null,
-        location:   input.location?.trim()   || null,
-        notes:      input.notes?.trim()      || null,
-        is_home:    input.is_home,
-      })
+      .insert({ ...base, event_date: input.event_date })
       .select()
       .single();
 
@@ -46,35 +104,60 @@ export async function createEvent(
 
     revalidatePath("/events");
     if (input.team_id) revalidatePath(`/teams/${input.team_id}`);
-
     return { data: data as TeamEvent, error: null };
   } catch (err) {
     return { data: null, error: String(err) };
   }
 }
 
+/**
+ * scope "this"  → update only the specified event row.
+ * scope "all"   → update every event in the same recurrence_group_id
+ *                 (title, type, location, etc. — not the individual dates).
+ */
 export async function updateEvent(
   input: UpdateEventInput,
+  scope: "this" | "all" = "this",
 ): Promise<{ data: TeamEvent | null; error: string | null }> {
   try {
     const { supabase, user } = await getAuthenticatedClient();
 
+    const patch = {
+      team_id:    input.team_id    || null,
+      roster_id:  input.roster_id  || null,
+      lineup_id:  input.lineup_id  || null,
+      type:       input.type,
+      title:      input.title.trim(),
+      opponent:   input.opponent?.trim()   || null,
+      start_time: input.start_time?.trim() || null,
+      end_time:   input.end_time?.trim()   || null,
+      location:   input.location?.trim()   || null,
+      notes:      input.notes?.trim()      || null,
+      is_home:    input.is_home,
+    };
+
+    if (scope === "all" && input.recurrence_group_id) {
+      const { data, error } = await supabase
+        .from("events")
+        .update(patch)
+        .eq("recurrence_group_id", input.recurrence_group_id)
+        .eq("user_id", user.id)
+        .select()
+        .limit(1)
+        .single();
+
+      if (error) return { data: null, error: error.message };
+
+      revalidatePath("/events");
+      revalidatePath(`/events/${input.id}`);
+      if (input.team_id) revalidatePath(`/teams/${input.team_id}`);
+      return { data: data as TeamEvent, error: null };
+    }
+
+    // "this" scope — also update event_date for single edits
     const { data, error } = await supabase
       .from("events")
-      .update({
-        team_id:    input.team_id    || null,
-        roster_id:  input.roster_id  || null,
-        lineup_id:  input.lineup_id  || null,
-        type:       input.type,
-        title:      input.title.trim(),
-        opponent:   input.opponent?.trim()   || null,
-        event_date: input.event_date,
-        start_time: input.start_time?.trim() || null,
-        end_time:   input.end_time?.trim()   || null,
-        location:   input.location?.trim()   || null,
-        notes:      input.notes?.trim()      || null,
-        is_home:    input.is_home,
-      })
+      .update({ ...patch, event_date: input.event_date })
       .eq("id", input.id)
       .eq("user_id", user.id)
       .select()
@@ -85,18 +168,42 @@ export async function updateEvent(
     revalidatePath("/events");
     revalidatePath(`/events/${input.id}`);
     if (input.team_id) revalidatePath(`/teams/${input.team_id}`);
-
     return { data: data as TeamEvent, error: null };
   } catch (err) {
     return { data: null, error: String(err) };
   }
 }
 
+/**
+ * scope "this"  → delete only this event.
+ * scope "all"   → delete all events in the recurrence group.
+ */
 export async function deleteEvent(
   id: string,
+  scope: "this" | "all" = "this",
 ): Promise<{ error: string | null }> {
   try {
     const { supabase, user } = await getAuthenticatedClient();
+
+    if (scope === "all") {
+      const { data: ev } = await supabase
+        .from("events")
+        .select("recurrence_group_id")
+        .eq("id", id)
+        .eq("user_id", user.id)
+        .single();
+
+      if (ev?.recurrence_group_id) {
+        const { error } = await supabase
+          .from("events")
+          .delete()
+          .eq("recurrence_group_id", ev.recurrence_group_id)
+          .eq("user_id", user.id);
+        if (error) return { error: error.message };
+        revalidatePath("/events");
+        return { error: null };
+      }
+    }
 
     const { error } = await supabase
       .from("events")
@@ -113,12 +220,38 @@ export async function deleteEvent(
   }
 }
 
+/**
+ * scope "this"  → archive/unarchive only this event.
+ * scope "all"   → archive/unarchive all events in the recurrence group.
+ */
 export async function setEventArchived(
   id: string,
   archived: boolean,
+  scope: "this" | "all" = "this",
 ): Promise<{ error: string | null }> {
   try {
     const { supabase, user } = await getAuthenticatedClient();
+
+    if (scope === "all") {
+      const { data: ev } = await supabase
+        .from("events")
+        .select("recurrence_group_id")
+        .eq("id", id)
+        .eq("user_id", user.id)
+        .single();
+
+      if (ev?.recurrence_group_id) {
+        const { error } = await supabase
+          .from("events")
+          .update({ is_archived: archived })
+          .eq("recurrence_group_id", ev.recurrence_group_id)
+          .eq("user_id", user.id);
+        if (error) return { error: error.message };
+        revalidatePath("/events");
+        revalidatePath(`/events/${id}`);
+        return { error: null };
+      }
+    }
 
     const { error } = await supabase
       .from("events")

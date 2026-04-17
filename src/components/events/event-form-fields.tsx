@@ -1,8 +1,11 @@
 "use client";
 
-import { LayoutList } from "lucide-react";
+import { LayoutList, Repeat } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { EVENT_TYPE_META, EVENT_TYPES, type EventType } from "@/lib/constants/events";
+import {
+  EVENT_TYPE_META, EVENT_TYPES, RECURRENCE_TYPES, RECURRENCE_TYPE_LABELS,
+  type EventType, type RecurrenceType,
+} from "@/lib/constants/events";
 import type { GameLineup, Roster, Team } from "@/lib/constants/teams";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
@@ -21,6 +24,9 @@ type Props = {
   teamId:     string;
   rosterId:   string;
   lineupId:   string;
+  recurrenceType:    RecurrenceType | null;
+  recurrenceEndDate: string;
+  showRecurrence?:   boolean; // false in edit mode
 
   teams:   Team[];
   rosters: Roster[];
@@ -38,6 +44,8 @@ type Props = {
   onTeamId:    (v: string) => void;
   onRosterId:  (v: string) => void;
   onLineupId:  (v: string) => void;
+  onRecurrenceType:    (v: RecurrenceType | null) => void;
+  onRecurrenceEndDate: (v: string) => void;
 };
 
 function formatLineupDate(dateStr: string) {
@@ -47,10 +55,12 @@ function formatLineupDate(dateStr: string) {
 
 export function EventFormFields({
   type, title, opponent, eventDate, startTime, endTime, location, notes,
-  isHome, teamId, rosterId, lineupId,
+  isHome, teamId, rosterId, lineupId, recurrenceType, recurrenceEndDate,
+  showRecurrence = true,
   teams, rosters, lineups,
   onType, onTitle, onOpponent, onEventDate, onStartTime, onEndTime,
   onLocation, onNotes, onIsHome, onTeamId, onRosterId, onLineupId,
+  onRecurrenceType, onRecurrenceEndDate,
 }: Props) {
   const rostersForTeam = teamId
     ? rosters.filter((r) => r.team_id === teamId && !r.is_archived)
@@ -254,6 +264,51 @@ export function EventFormFields({
             <p className="text-xs text-muted-foreground">
               Select a team above to link a lineup.
             </p>
+          )}
+        </div>
+      )}
+
+      {/* Recurrence */}
+      {showRecurrence && (
+        <div className="flex flex-col gap-3">
+          <div className="flex flex-col gap-1.5">
+            <Label htmlFor="event-recurrence" className="flex items-center gap-1.5">
+              <Repeat className="h-3.5 w-3.5 text-muted-foreground" />
+              Repeat
+            </Label>
+            <select
+              id="event-recurrence"
+              value={recurrenceType ?? ""}
+              onChange={(e) => {
+                const v = e.target.value;
+                onRecurrenceType(v ? (v as RecurrenceType) : null);
+                if (!v) onRecurrenceEndDate("");
+              }}
+              className="flex h-9 w-full rounded-md border border-input bg-background px-3 py-1 text-sm shadow-xs transition-colors focus:outline-none focus:ring-1 focus:ring-ring"
+            >
+              <option value="">Does not repeat</option>
+              {RECURRENCE_TYPES.map((r) => (
+                <option key={r} value={r}>{RECURRENCE_TYPE_LABELS[r]}</option>
+              ))}
+            </select>
+          </div>
+
+          {recurrenceType && (
+            <div className="flex flex-col gap-1.5">
+              <Label htmlFor="event-recurrence-end">
+                Repeat until <span className="text-destructive">*</span>
+              </Label>
+              <Input
+                id="event-recurrence-end"
+                type="date"
+                value={recurrenceEndDate}
+                min={eventDate || undefined}
+                onChange={(e) => onRecurrenceEndDate(e.target.value)}
+              />
+              <p className="text-xs text-muted-foreground">
+                Individual events will be created from the start date through this end date.
+              </p>
+            </div>
           )}
         </div>
       )}
