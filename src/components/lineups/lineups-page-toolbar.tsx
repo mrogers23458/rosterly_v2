@@ -1,8 +1,9 @@
 "use client";
 
-import { LayoutList } from "lucide-react";
+import { LayoutList, Sparkles } from "lucide-react";
 import { useMemo, useState } from "react";
 import { CreateLineupModal } from "@/components/lineups/create-lineup-modal";
+import { AiImportModal } from "@/components/import/ai-import-modal";
 import { Button } from "@/components/ui/button";
 import { Select } from "@/components/ui/select";
 import type { Player, Roster, Team } from "@/lib/constants/teams";
@@ -16,8 +17,10 @@ type Props = {
 };
 
 export function LineupsPageToolbar({ teams, rosters, rosterPlayersMap, initialTeamId }: Props) {
-  const [open, setOpen] = useState(false);
+  const [open,    setOpen]    = useState(false);
+  const [aiOpen,  setAiOpen]  = useState(false);
   const [dialogKey, setDialogKey] = useState(0);
+  const [aiKey,     setAiKey]     = useState(0);
   const teamOptions = useMemo(() => teams.filter((t) => !t.is_archived), [teams]);
   const [teamId, setTeamId] = useState(() => {
     if (initialTeamId && teamOptions.some((t) => t.id === initialTeamId)) return initialTeamId;
@@ -64,11 +67,17 @@ export function LineupsPageToolbar({ teams, rosters, rosterPlayersMap, initialTe
       </div>
       <Button
         type="button"
+        variant="outline"
         className="shrink-0"
-        onClick={() => {
-          setDialogKey((k) => k + 1);
-          setOpen(true);
-        }}
+        onClick={() => { setAiKey((k) => k + 1); setAiOpen(true); }}
+      >
+        <Sparkles className="h-4 w-4" />
+        AI Import
+      </Button>
+      <Button
+        type="button"
+        className="shrink-0"
+        onClick={() => { setDialogKey((k) => k + 1); setOpen(true); }}
       >
         <LayoutList className="h-4 w-4" />
         Create lineup
@@ -81,6 +90,12 @@ export function LineupsPageToolbar({ teams, rosters, rosterPlayersMap, initialTe
         allTeams={teams}
         open={open}
         onOpenChange={setOpen}
+      />
+      <AiImportModal
+        key={`ai-${aiKey}`}
+        open={aiOpen}
+        onOpenChange={setAiOpen}
+        preselectedTeamId={teamId}
       />
     </div>
   );
