@@ -220,38 +220,15 @@ export type ExtractionResult = {
 
 export type ExtractFileResult = { data?: ExtractionResult; error?: string };
 
-// ─── Extract from file ────────────────────────────────────────────────────────
+// ─── Shared: call OpenAI with content parts ───────────────────────────────────
 
-export async function extractFromFile(formData: FormData): Promise<ExtractFileResult> {
-  const file = formData.get("file") as File | null;
-  if (!file) return { error: "No file provided." };
-
+async function callOpenAI(
+  userContent: OpenAI.Chat.ChatCompletionContentPart[],
+): Promise<ExtractFileResult> {
   const apiKey = process.env.OPENAI_API_KEY;
   if (!apiKey) return { error: "OpenAI API key not configured." };
 
   const client = new OpenAI({ apiKey });
-
-  const ext = file.name.split(".").pop()?.toLowerCase() ?? "";
-  const isImage = ["jpg", "jpeg", "png", "webp", "gif"].includes(ext);
-
-  let userContent: OpenAI.Chat.ChatCompletionContentPart[];
-
-  if (isImage) {
-    const buffer = await file.arrayBuffer();
-    const base64 = Buffer.from(buffer).toString("base64");
-    const mimeType = file.type || `image/${ext === "jpg" ? "jpeg" : ext}`;
-    userContent = [
-      { type: "text", text: "Please extract all structured data from this image." },
-      { type: "image_url", image_url: { url: `data:${mimeType};base64,${base64}`, detail: "high" } },
-    ];
-  } else {
-    // CSV, TSV, TXT, or any text-based file
-    const text = await file.text();
-    if (!text.trim()) return { error: "The file appears to be empty." };
-    userContent = [
-      { type: "text", text: `File name: ${file.name}\n\nFile contents:\n\n${text}` },
-    ];
-  }
 
   try {
     const response = await client.chat.completions.create({
@@ -265,8 +242,6 @@ export async function extractFromFile(formData: FormData): Promise<ExtractFileRe
     });
 
     const raw = response.choices[0]?.message?.content ?? "";
-
-    // Strip any accidental markdown fences
     const cleaned = raw.replace(/^```(?:json)?\s*/i, "").replace(/\s*```\s*$/i, "").trim();
 
     let parsed: ExtractionResult;
@@ -282,6 +257,109 @@ export async function extractFromFile(formData: FormData): Promise<ExtractFileRe
     console.error("OpenAI error:", err);
     return { error: "Failed to contact OpenAI. Please check your API key and try again." };
   }
+}
+
+// ─── Extract from file ────────────────────────────────────────────────────────
+
+export async function extractFromFile(formData: FormData): Promise<ExtractFileResult> {
+  const file = formData.get("file") as File | null;
+  if (!file) return { error: "No file provided." };
+
+  const ext = file.name.split(".").pop()?.toLowerCase() ?? "";
+  const isImage = ["jpg", "jpeg", "png", "webp", "gif"].includes(ext);
+
+  let userContent: OpenAI.Chat.ChatCompletionContentPart[];
+
+  if (isImage) {
+    const buffer = await file.arrayBuffer();
+    const base64 = Buffer.from(buffer).toString("base64");
+    const mimeType = file.type || `image/${ext === "jpg" ? "jpeg" : ext}`;
+    userContent = [
+      { type: "text", text: "Please extract all structured data from this image." },
+      { type: "image_url", image_url: { url: `data:${mimeType};base64,${base64}`, detail: "high" } },
+    ];
+  } else {
+    const text = await file.text();
+    if (!text.trim()) return { error: "The file appears to be empty." };
+    userContent = [
+      { type: "text", text: `File name: ${file.name}\n\nFile contents:\n\n${text}` },
+    ];
+  }
+
+  return callOpenAI(userContent);
+}
+
+// ─── Extract from Google Sheets URL ──────────────────────────────────────────
+
+/**
+ * Parses a Google Sheets share URL and returns a CSV export URL.
+ * Works for any sheet shared as "Anyone with the link can view".
+ *
+ * Supported URL formats:
+ *   https://docs.google.com/spreadsheets/d/{ID}/edit#gid={GID}
+ *   https://docs.google.com/spreadsheets/d/{ID}/edit?usp=sharing
+ *   https://docs.google.com/spreadsheets/d/{ID}/
+ */
+function googleSheetsToCsvUrl(input: string): string | null {
+  try {
+    const url = new URL(input.trim());
+    const match = url.pathname.match(/\/spreadsheets\/d\/([a-zA-Z0-9_-]+)/);
+    if (!match) return null;
+
+    const sheetId = match[1];
+
+    // GID can appear in the hash (#gid=123) or as a query param (?gid=123)
+    const hashGid   = url.hash.match(/gid=(\d+)/)?.[1];
+    const queryGid  = url.searchParams.get("gid");
+    const gid       = hashGid ?? queryGid ?? "0";
+
+    return `https://docs.google.com/spreadsheets/d/${sheetId}/export?format=csv&gid=${gid}`;
+  } catch {
+    return null;
+  }
+}
+
+export async function extractFromGoogleSheet(sheetUrl: string): Promise<ExtractFileResult> {
+  const csvUrl = googleSheetsToCsvUrl(sheetUrl);
+  if (!csvUrl) {
+    return {
+      error:
+        "That doesn't look like a valid Google Sheets URL. Copy the link from File → Share → Copy link.",
+    };
+  }
+
+  let csvText: string;
+  try {
+    const res = await fetch(csvUrl, { redirect: "follow" });
+
+    if (res.status === 403 || res.status === 401) {
+      return {
+        error:
+          "Google Sheets returned 'access denied'. Make sure the sheet is shared as 'Anyone with the link can view'.",
+      };
+    }
+    if (!res.ok) {
+      return { error: `Could not fetch the sheet (HTTP ${res.status}). Check the URL and sharing settings.` };
+    }
+
+    csvText = await res.text();
+  } catch (err) {
+    console.error("Google Sheets fetch error:", err);
+    return { error: "Could not reach Google Sheets. Please check the URL and try again." };
+  }
+
+  if (!csvText.trim()) {
+    return { error: "The Google Sheet appears to be empty." };
+  }
+
+  const userContent: OpenAI.Chat.ChatCompletionContentPart[] = [
+    {
+      type: "text",
+      text: `Source: Google Sheets export (CSV)\nURL: ${sheetUrl}\n\nFile contents:\n\n${csvText}`,
+    },
+  ];
+
+  return callOpenAI(userContent);
 }
 
 // ─── Import extracted data into Supabase ──────────────────────────────────────

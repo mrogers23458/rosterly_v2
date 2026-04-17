@@ -6,6 +6,7 @@ import {
   FileSpreadsheet,
   FileText,
   Image,
+  Link2,
   Loader2,
   Sparkles,
   Upload,
@@ -18,6 +19,7 @@ import Link from "next/link";
 import { useCallback, useRef, useState, useTransition } from "react";
 import {
   extractFromFile,
+  extractFromGoogleSheet,
   importExtractedData,
   type ExtractionResult,
   type ImportOptions,
@@ -37,6 +39,7 @@ import { cn } from "@/lib/utils";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
+type InputMode = "file" | "sheets";
 type Step = "upload" | "extracting" | "review" | "importing" | "done";
 
 type ImportResult = {
@@ -96,7 +99,9 @@ type Props = {
 
 export function AiImportModal({ open, onOpenChange, preselectedTeamId }: Props) {
   const [step,       setStep]       = useState<Step>("upload");
+  const [inputMode,  setInputMode]  = useState<InputMode>("file");
   const [file,       setFile]       = useState<File | null>(null);
+  const [sheetUrl,   setSheetUrl]   = useState("");
   const [dragging,   setDragging]   = useState(false);
   const [extraction, setExtraction] = useState<ExtractionResult | null>(null);
   const [error,      setError]      = useState<string | null>(null);
@@ -113,7 +118,9 @@ export function AiImportModal({ open, onOpenChange, preselectedTeamId }: Props) 
 
   function reset() {
     setStep("upload");
+    setInputMode("file");
     setFile(null);
+    setSheetUrl("");
     setExtraction(null);
     setError(null);
     setResult(null);
@@ -150,15 +157,20 @@ export function AiImportModal({ open, onOpenChange, preselectedTeamId }: Props) 
   // ── Extract ─────────────────────────────────────────────────────────────────
 
   function handleExtract() {
-    if (!file) return;
+    if (inputMode === "file" && !file) return;
+    if (inputMode === "sheets" && !sheetUrl.trim()) return;
     setError(null);
     setStep("extracting");
 
-    const fd = new FormData();
-    fd.append("file", file);
-
     startTransition(async () => {
-      const res = await extractFromFile(fd);
+      let res;
+      if (inputMode === "sheets") {
+        res = await extractFromGoogleSheet(sheetUrl.trim());
+      } else {
+        const fd = new FormData();
+        fd.append("file", file!);
+        res = await extractFromFile(fd);
+      }
       if (res.error || !res.data) {
         setError(res.error ?? "Extraction failed.");
         setStep("upload");
@@ -241,52 +253,111 @@ export function AiImportModal({ open, onOpenChange, preselectedTeamId }: Props) 
                 </Alert>
               )}
 
-              <div
-                onDragOver={(e) => { e.preventDefault(); setDragging(true); }}
-                onDragLeave={() => setDragging(false)}
-                onDrop={handleDrop}
-                onClick={() => fileInputRef.current?.click()}
-                className={cn(
-                  "flex cursor-pointer flex-col items-center gap-3 rounded-lg border-2 border-dashed p-10 text-center transition-colors",
-                  dragging
-                    ? "border-primary bg-primary/5"
-                    : "border-border hover:border-primary/50 hover:bg-muted/30",
-                )}
-              >
-                <Upload className="h-8 w-8 text-muted-foreground/50" />
-                <div>
-                  <p className="font-medium">Drop a file or click to browse</p>
-                  <p className="mt-1 text-xs text-muted-foreground">
-                    CSV, TSV, TXT, PNG, JPG, WEBP — up to 10 MB
-                  </p>
-                </div>
-                <input
-                  ref={fileInputRef}
-                  type="file"
-                  accept=".csv,.tsv,.txt,.jpg,.jpeg,.png,.webp,.gif"
-                  className="hidden"
-                  onChange={handleInputChange}
-                />
+              {/* Mode tabs */}
+              <div className="flex rounded-lg border border-border bg-muted/30 p-1">
+                <button
+                  type="button"
+                  onClick={() => { setInputMode("file"); setError(null); }}
+                  className={cn(
+                    "flex flex-1 items-center justify-center gap-2 rounded-md px-3 py-2 text-sm font-medium transition-colors",
+                    inputMode === "file"
+                      ? "bg-background text-foreground shadow-sm"
+                      : "text-muted-foreground hover:text-foreground",
+                  )}
+                >
+                  <Upload className="h-3.5 w-3.5" />
+                  Upload file
+                </button>
+                <button
+                  type="button"
+                  onClick={() => { setInputMode("sheets"); setError(null); }}
+                  className={cn(
+                    "flex flex-1 items-center justify-center gap-2 rounded-md px-3 py-2 text-sm font-medium transition-colors",
+                    inputMode === "sheets"
+                      ? "bg-background text-foreground shadow-sm"
+                      : "text-muted-foreground hover:text-foreground",
+                  )}
+                >
+                  <Link2 className="h-3.5 w-3.5" />
+                  Google Sheets
+                </button>
               </div>
 
-              {file && (
-                <div className="flex items-center gap-3 rounded-lg border border-border bg-muted/30 px-4 py-3">
-                  {fileIcon(file.name)}
-                  <div className="min-w-0 flex-1">
-                    <p className="truncate text-sm font-medium">{file.name}</p>
-                    <p className="text-xs text-muted-foreground">
-                      {(file.size / 1024).toFixed(1)} KB
-                    </p>
-                  </div>
-                  <Button
-                    type="button"
-                    onClick={(e) => { e.stopPropagation(); setFile(null); }}
-                    variant="ghost"
-                    size="sm"
-                    className="shrink-0 text-muted-foreground"
+              {/* File upload mode */}
+              {inputMode === "file" && (
+                <>
+                  <div
+                    onDragOver={(e) => { e.preventDefault(); setDragging(true); }}
+                    onDragLeave={() => setDragging(false)}
+                    onDrop={handleDrop}
+                    onClick={() => fileInputRef.current?.click()}
+                    className={cn(
+                      "flex cursor-pointer flex-col items-center gap-3 rounded-lg border-2 border-dashed p-10 text-center transition-colors",
+                      dragging
+                        ? "border-primary bg-primary/5"
+                        : "border-border hover:border-primary/50 hover:bg-muted/30",
+                    )}
                   >
-                    ✕
-                  </Button>
+                    <Upload className="h-8 w-8 text-muted-foreground/50" />
+                    <div>
+                      <p className="font-medium">Drop a file or click to browse</p>
+                      <p className="mt-1 text-xs text-muted-foreground">
+                        CSV, TSV, TXT, PNG, JPG, WEBP — up to 10 MB
+                      </p>
+                    </div>
+                    <input
+                      ref={fileInputRef}
+                      type="file"
+                      accept=".csv,.tsv,.txt,.jpg,.jpeg,.png,.webp,.gif"
+                      className="hidden"
+                      onChange={handleInputChange}
+                    />
+                  </div>
+
+                  {file && (
+                    <div className="flex items-center gap-3 rounded-lg border border-border bg-muted/30 px-4 py-3">
+                      {fileIcon(file.name)}
+                      <div className="min-w-0 flex-1">
+                        <p className="truncate text-sm font-medium">{file.name}</p>
+                        <p className="text-xs text-muted-foreground">
+                          {(file.size / 1024).toFixed(1)} KB
+                        </p>
+                      </div>
+                      <Button
+                        type="button"
+                        onClick={(e) => { e.stopPropagation(); setFile(null); }}
+                        variant="ghost"
+                        size="sm"
+                        className="shrink-0 text-muted-foreground"
+                      >
+                        ✕
+                      </Button>
+                    </div>
+                  )}
+                </>
+              )}
+
+              {/* Google Sheets mode */}
+              {inputMode === "sheets" && (
+                <div className="flex flex-col gap-3">
+                  <div className="flex flex-col gap-1.5">
+                    <label htmlFor="sheets-url" className="text-sm font-medium">
+                      Google Sheets URL
+                    </label>
+                    <input
+                      id="sheets-url"
+                      type="url"
+                      value={sheetUrl}
+                      onChange={(e) => setSheetUrl(e.target.value)}
+                      placeholder="https://docs.google.com/spreadsheets/d/..."
+                      className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+                    />
+                  </div>
+                  <div className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2.5 text-xs text-amber-800 dark:border-amber-900/30 dark:bg-amber-900/10 dark:text-amber-300">
+                    <strong>The sheet must be publicly shared.</strong> In Google Sheets, go to{" "}
+                    <strong>File → Share → Share with others</strong>, then set access to{" "}
+                    <strong>Anyone with the link → Viewer</strong>.
+                  </div>
                 </div>
               )}
 
@@ -294,11 +365,15 @@ export function AiImportModal({ open, onOpenChange, preselectedTeamId }: Props) 
                 type="button"
                 size="lg"
                 className="w-full"
-                disabled={!file || isPending}
+                disabled={
+                  isPending ||
+                  (inputMode === "file" && !file) ||
+                  (inputMode === "sheets" && !sheetUrl.trim())
+                }
                 onClick={handleExtract}
               >
                 <Sparkles className="h-4 w-4" />
-                Extract with AI
+                {inputMode === "sheets" ? "Extract from Google Sheets" : "Extract with AI"}
               </Button>
             </div>
           )}
@@ -549,9 +624,9 @@ export function AiImportModal({ open, onOpenChange, preselectedTeamId }: Props) 
                       variant="outline"
                       size="lg"
                       className="flex-1"
-                      onClick={() => { setStep("upload"); setExtraction(null); }}
+                      onClick={() => { setStep("upload"); setExtraction(null); setError(null); }}
                     >
-                      Try another file
+                      Try another source
                     </Button>
                     <Button
                       type="button"
