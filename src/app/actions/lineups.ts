@@ -74,6 +74,33 @@ export async function createLineup(input: CreateLineupInput): Promise<LineupActi
   return { success: true, lineupId: lineup.id };
 }
 
+// ─── Fetch lineups for a team (used by duplicate picker) ──────────────────
+
+export type TeamLineupSummary = {
+  id: string;
+  name: string;
+  game_date: string | null;
+  inning_count: number;
+  is_archived: boolean;
+  created_at: string;
+};
+
+export async function fetchTeamLineups(teamId: string): Promise<TeamLineupSummary[]> {
+  const cookieStore = await cookies();
+  const supabase = createClient(cookieStore);
+  const { data: { user }, error: authError } = await supabase.auth.getUser();
+  if (authError || !user) return [];
+
+  const { data } = await supabase
+    .from("game_lineups")
+    .select("id, name, game_date, inning_count, is_archived, created_at")
+    .eq("team_id", teamId)
+    .eq("user_id", user.id)
+    .order("created_at", { ascending: false });
+
+  return (data ?? []) as TeamLineupSummary[];
+}
+
 // ─── Fetch entries (used by edit modal) ────────────────────────────────────
 
 export type LineupEntryRow = {

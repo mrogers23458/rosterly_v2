@@ -1,12 +1,19 @@
 "use client";
 
 import {
-  AlertTriangle, CheckCircle2, ClipboardList, LayoutList,
+  AlertTriangle, CheckCircle2, ClipboardList, Copy, LayoutList, Loader2, Search,
 } from "lucide-react";
 import { useRouter } from "next/navigation";
-import { useState, useTransition } from "react";
-import { createLineup, type LineupEntryInput } from "@/app/actions/lineups";
+import { useEffect, useState, useTransition } from "react";
+import {
+  createLineup,
+  fetchLineupEntries,
+  fetchTeamLineups,
+  type LineupEntryInput,
+  type TeamLineupSummary,
+} from "@/app/actions/lineups";
 import { Alert, AlertDescription } from "@/components/ui/alert";
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
   Dialog, DialogBody, DialogContent,
@@ -19,42 +26,44 @@ import {
   autofillLineup, entryFromPlayer, validateEntries,
 } from "@/components/lineups/lineup-table";
 import { CreateRosterModal } from "@/components/rosters/create-roster-modal";
+import { cn } from "@/lib/utils";
 import type { Player, Roster, Team } from "@/lib/constants/teams";
 
 // re-export so consumers that need EntryDraft don't have to know about lineup-table
 export type { EntryDraft };
 
-type View = "start" | "pick-roster" | "form" | "warn" | "done";
+type View = "start" | "pick-roster" | "pick-duplicate" | "form" | "warn" | "done";
 
 // ─── Start step ───────────────────────────────────────────────────────────────
 
 function StartStep({
-  hasActiveRosters, allTeams, teamId, onLoadRoster, onManual, onClose,
+  hasActiveRosters, allTeams, teamId, onLoadRoster, onDuplicate, onManual, onClose,
 }: {
   hasActiveRosters: boolean;
   allTeams: Team[];
   teamId: string;
   onLoadRoster: () => void;
+  onDuplicate: () => void;
   onManual: () => void;
   onClose: () => void;
 }) {
   return (
     <div className="flex flex-col gap-4">
-      <div className="grid grid-cols-2 gap-3">
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
         <button
           type="button"
           onClick={onLoadRoster}
           disabled={!hasActiveRosters}
-          className="flex flex-col items-center gap-3 rounded-lg border-2 border-border bg-card p-6 text-center transition-all hover:border-primary/50 hover:bg-primary/5 disabled:cursor-not-allowed disabled:opacity-50"
+          className="flex flex-col items-center gap-3 rounded-lg border-2 border-border bg-card p-5 text-center transition-all hover:border-primary/50 hover:bg-primary/5 disabled:cursor-not-allowed disabled:opacity-50"
         >
-          <div className="flex h-12 w-12 items-center justify-center rounded-full bg-primary/10">
-            <ClipboardList className="h-6 w-6 text-primary" />
+          <div className="flex h-11 w-11 items-center justify-center rounded-full bg-primary/10">
+            <ClipboardList className="h-5 w-5 text-primary" />
           </div>
           <div>
-            <p className="font-semibold text-sm">Load existing roster</p>
+            <p className="text-sm font-semibold">Load from roster</p>
             <p className="mt-0.5 text-xs text-muted-foreground">
               {hasActiveRosters
-                ? "Pick an active roster to populate the batting order"
+                ? "Pick an active roster to pre-fill players"
                 : "No active rosters on this team"}
             </p>
           </div>
@@ -62,24 +71,40 @@ function StartStep({
 
         <button
           type="button"
-          onClick={onManual}
-          className="flex flex-col items-center gap-3 rounded-lg border-2 border-border bg-card p-6 text-center transition-all hover:border-primary/50 hover:bg-primary/5"
+          onClick={onDuplicate}
+          className="flex flex-col items-center gap-3 rounded-lg border-2 border-border bg-card p-5 text-center transition-all hover:border-primary/50 hover:bg-primary/5"
         >
-          <div className="flex h-12 w-12 items-center justify-center rounded-full bg-primary/10">
-            <LayoutList className="h-6 w-6 text-primary" />
+          <div className="flex h-11 w-11 items-center justify-center rounded-full bg-primary/10">
+            <Copy className="h-5 w-5 text-primary" />
           </div>
           <div>
-            <p className="font-semibold text-sm">Add players manually</p>
-            <p className="mt-0.5 text-xs text-muted-foreground">Build the lineup from scratch</p>
+            <p className="text-sm font-semibold">Duplicate a lineup</p>
+            <p className="mt-0.5 text-xs text-muted-foreground">
+              Copy a previous lineup and adjust from there
+            </p>
+          </div>
+        </button>
+
+        <button
+          type="button"
+          onClick={onManual}
+          className="flex flex-col items-center gap-3 rounded-lg border-2 border-border bg-card p-5 text-center transition-all hover:border-primary/50 hover:bg-primary/5"
+        >
+          <div className="flex h-11 w-11 items-center justify-center rounded-full bg-primary/10">
+            <LayoutList className="h-5 w-5 text-primary" />
+          </div>
+          <div>
+            <p className="text-sm font-semibold">Start from scratch</p>
+            <p className="mt-0.5 text-xs text-muted-foreground">Build the lineup manually</p>
           </div>
         </button>
       </div>
 
       {!hasActiveRosters && (
-        <div className="rounded-lg border border-amber-200 bg-amber-50 p-4">
+        <div className="rounded-lg border border-amber-200 bg-amber-50 p-4 dark:border-amber-900/30 dark:bg-amber-900/10">
           <div className="flex items-start gap-2">
-            <AlertTriangle className="mt-0.5 h-4 w-4 flex-shrink-0 text-amber-600" />
-            <div className="text-sm text-amber-800">
+            <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-amber-600 dark:text-amber-400" />
+            <div className="text-sm text-amber-800 dark:text-amber-300">
               <p className="font-medium">No active rosters on this team</p>
               <p className="mt-0.5 text-xs">
                 Create an active roster first to load players automatically.
@@ -94,6 +119,116 @@ function StartStep({
 
       <Button type="button" variant="outline" className="w-full" onClick={onClose}>
         Cancel
+      </Button>
+    </div>
+  );
+}
+
+// ─── Duplicate picker step ─────────────────────────────────────────────────────
+
+function PickDuplicateStep({
+  teamId,
+  onSelect,
+  onBack,
+}: {
+  teamId: string;
+  onSelect: (entries: EntryDraft[], source: TeamLineupSummary) => void;
+  onBack: () => void;
+}) {
+  const [lineups,   setLineups]   = useState<TeamLineupSummary[]>([]);
+  const [loading,   setLoading]   = useState(true);
+  const [loadingId, setLoadingId] = useState<string | null>(null);
+  const [search,    setSearch]    = useState("");
+
+  useEffect(() => {
+    fetchTeamLineups(teamId).then((data) => {
+      setLineups(data);
+      setLoading(false);
+    });
+  }, [teamId]);
+
+  const filtered = lineups.filter((l) =>
+    l.name.toLowerCase().includes(search.toLowerCase()),
+  );
+
+  async function handlePick(lineup: TeamLineupSummary) {
+    setLoadingId(lineup.id);
+    const rows = await fetchLineupEntries(lineup.id);
+    const drafts: EntryDraft[] = rows.map((r) => ({
+      jersey_number: r.jersey_number ?? "",
+      player_name:   r.player_name,
+      innings:       r.innings,
+    }));
+    setLoadingId(null);
+    onSelect(drafts, lineup);
+  }
+
+  return (
+    <div className="flex flex-col gap-4">
+      <div className="relative">
+        <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+        <Input
+          placeholder="Search lineups…"
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+          className="pl-9"
+          autoFocus
+        />
+      </div>
+
+      {loading ? (
+        <div className="flex items-center justify-center gap-2 py-8 text-muted-foreground">
+          <Loader2 className="h-4 w-4 animate-spin" />
+          <span className="text-sm">Loading lineups…</span>
+        </div>
+      ) : filtered.length === 0 ? (
+        <div className="py-8 text-center text-sm text-muted-foreground">
+          {search ? "No lineups match your search." : "No previous lineups found for this team."}
+        </div>
+      ) : (
+        <ul className="flex flex-col divide-y divide-border overflow-hidden rounded-lg border border-border">
+          {filtered.map((lineup) => {
+            const isLoading = loadingId === lineup.id;
+            return (
+              <li key={lineup.id}>
+                <button
+                  type="button"
+                  onClick={() => handlePick(lineup)}
+                  disabled={!!loadingId}
+                  className={cn(
+                    "flex w-full items-center gap-3 px-4 py-3.5 text-left transition-colors",
+                    "hover:bg-muted/40 disabled:cursor-not-allowed disabled:opacity-60",
+                  )}
+                >
+                  <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-muted">
+                    {isLoading
+                      ? <Loader2 className="h-4 w-4 animate-spin text-primary" />
+                      : <Copy className="h-4 w-4 text-muted-foreground" />
+                    }
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <p className="truncate text-sm font-medium">{lineup.name}</p>
+                    <p className="mt-0.5 text-xs text-muted-foreground">
+                      {lineup.game_date
+                        ? new Date(lineup.game_date + "T00:00:00").toLocaleDateString("en-US", {
+                            weekday: "short", month: "short", day: "numeric", year: "numeric",
+                          })
+                        : "No date set"}{" "}
+                      · {lineup.inning_count} inn.
+                    </p>
+                  </div>
+                  {lineup.is_archived && (
+                    <Badge variant="muted" className="shrink-0 text-xs">Archived</Badge>
+                  )}
+                </button>
+              </li>
+            );
+          })}
+        </ul>
+      )}
+
+      <Button type="button" variant="outline" className="w-full" onClick={onBack}>
+        ← Back
       </Button>
     </div>
   );
@@ -157,6 +292,18 @@ export function CreateLineupModal({
     setView("form");
   }
 
+  function handleSelectDuplicate(drafts: EntryDraft[], source: TeamLineupSummary) {
+    setSelectedRosterId(null);
+    setInningCount(source.inning_count);
+    setEntries(drafts);
+    setEntriesVersion((v) => v + 1);
+    // Pre-fill name and notes; clear date (this is a new game)
+    setName(`Copy of ${source.name}`);
+    setNotes(notes); // keep whatever was already typed, or could use source notes
+    setGameDate("");
+    setView("form");
+  }
+
   function handleManual() {
     setSelectedRosterId(null);
     setEntries([]);
@@ -209,7 +356,8 @@ export function CreateLineupModal({
   }
 
   const selectedRosterName = activeRosters.find((r) => r.id === selectedRosterId)?.name;
-  const dialogWidth = view === "form" || view === "warn" ? "sm:max-w-5xl" : "sm:max-w-lg";
+  const dialogWidth =
+    view === "form" || view === "warn" ? "sm:max-w-5xl" : "sm:max-w-lg";
 
   return (
     <>
@@ -227,11 +375,14 @@ export function CreateLineupModal({
             {view === "pick-roster" && (
               <DialogDescription>Select a roster to load its players</DialogDescription>
             )}
+            {view === "pick-duplicate" && (
+              <DialogDescription>Choose a previous lineup to duplicate</DialogDescription>
+            )}
             {view === "form" && (
               <DialogDescription>
                 {selectedRosterName
                   ? `Building lineup from ${selectedRosterName}`
-                  : "Building lineup manually · drag rows to reorder"}
+                  : "Building lineup · drag rows to reorder"}
               </DialogDescription>
             )}
           </DialogHeader>
@@ -243,6 +394,7 @@ export function CreateLineupModal({
                 allTeams={allTeams}
                 teamId={teamId}
                 onLoadRoster={() => setView("pick-roster")}
+                onDuplicate={() => setView("pick-duplicate")}
                 onManual={handleManual}
                 onClose={() => handleOpen(false)}
               />
@@ -253,6 +405,14 @@ export function CreateLineupModal({
                 activeRosters={activeRosters}
                 rosterPlayersMap={rosterPlayersMap}
                 onSelect={handleSelectRoster}
+                onBack={() => setView("start")}
+              />
+            )}
+
+            {view === "pick-duplicate" && (
+              <PickDuplicateStep
+                teamId={teamId}
+                onSelect={handleSelectDuplicate}
                 onBack={() => setView("start")}
               />
             )}
