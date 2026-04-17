@@ -39,7 +39,7 @@ class DialogAwarePointerSensor extends PointerSensor {
           document.querySelector('[role="dialog"][data-state="open"]')
         ) {
           // A modal is open — do not start any card drag.
-          return;
+          return false;
         }
         return PointerSensor.activators[0].handler(event, ctx);
       },

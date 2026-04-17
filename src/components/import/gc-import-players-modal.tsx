@@ -12,7 +12,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import {
-  Dialog, DialogContent, DialogHeader, DialogTitle,
+  Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle,
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -598,6 +598,9 @@ export function GcImportPlayersModal({ teamId, rosterId, existingPlayers }: Prop
         <DialogContent className="max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>Import players from GameChanger</DialogTitle>
+            <DialogDescription>
+              Upload a GameChanger CSV export to add players to this roster.
+            </DialogDescription>
             <div className="mt-1"><StepIndicator step={step} /></div>
           </DialogHeader>
 

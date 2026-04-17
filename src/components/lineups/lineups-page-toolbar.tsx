@@ -44,7 +44,7 @@ export function LineupsPageToolbar({ teams, rosters, rosterPlayersMap, initialTe
   }
 
   return (
-    <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-end">
+    <div className="flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-end">
       <div className="flex flex-col gap-1 sm:min-w-[220px]">
         <span className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
           Team for new lineup

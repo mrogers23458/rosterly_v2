@@ -14,7 +14,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import {
-  Dialog, DialogContent, DialogHeader, DialogTitle,
+  Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle,
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -671,7 +671,7 @@ export function GcImportModal({
     setSubmitError(null);
     startTransition(async () => {
       const res = await importTeam(team);
-      if (res.error) { setSubmitError(res.error); return; }
+      if (res.error || !res.data) { setSubmitError(res.error ?? "Unexpected error"); return; }
       setCreatedTeamId(res.data.id);
       setStep("team-success");
     });
@@ -682,7 +682,7 @@ export function GcImportModal({
     setSubmitError(null);
     startTransition(async () => {
       const res = await importRoster({ ...roster, team_id: resolvedTeamId });
-      if (res.error) { setSubmitError(res.error); return; }
+      if (res.error || !res.data) { setSubmitError(res.error ?? "Unexpected error"); return; }
       setCreatedRosterId(res.data.id);
       setStep("roster-success");
     });
@@ -715,6 +715,9 @@ export function GcImportModal({
         <DialogContent className="max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>Import from GameChanger</DialogTitle>
+            <DialogDescription>
+              Upload a GameChanger CSV export to create a team, roster, and players.
+            </DialogDescription>
             <div className="mt-1">
               <StepIndicator step={step} skipTeam={skipTeam} />
             </div>
