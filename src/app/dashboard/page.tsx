@@ -1,10 +1,10 @@
-import { CalendarDays, Plus } from "lucide-react";
+import { CalendarDays } from "lucide-react";
 import Link from "next/link";
 import { cookies } from "next/headers";
 import { createClient } from "@/utils/supabase/server";
 import { AiSetupWidget } from "@/components/import/ai-setup-widget";
+import { ManualSetupWidget } from "@/components/dashboard/manual-setup-widget";
 import { WeatherWidget } from "@/components/dashboard/weather-widget";
-import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 
 // ─── Date helpers ─────────────────────────────────────────────────────────────
@@ -67,21 +67,11 @@ export default async function DashboardPage() {
     <div className="px-4 py-8 sm:px-6 md:px-8">
       <h1 className="mb-6 text-2xl font-bold tracking-tight sm:text-3xl">Dashboard</h1>
 
-      {/* ── No teams yet ── */}
+      {/* ── No teams: setup widgets ── */}
       {!hasTeams && (
-        <div className="mb-8 flex flex-col gap-4">
+        <div className="mb-8 grid grid-cols-1 gap-4 sm:grid-cols-2">
           <AiSetupWidget />
-          <div className="flex items-center gap-3">
-            <div className="h-px flex-1 bg-border" />
-            <span className="text-xs text-muted-foreground">or set up manually</span>
-            <div className="h-px flex-1 bg-border" />
-          </div>
-          <Button asChild variant="outline" className="w-full sm:w-auto">
-            <Link href="/teams/new">
-              <Plus className="h-4 w-4" />
-              Create team manually
-            </Link>
-          </Button>
+          <ManualSetupWidget />
         </div>
       )}
 
@@ -119,9 +109,9 @@ export default async function DashboardPage() {
             ) : (
               <ul className="divide-y divide-border">
                 {upcomingLineups.map((lineup) => {
-                  const days      = daysUntil(lineup.game_date!);
-                  const isToday   = days === 0;
-                  const isSoon    = days <= 3;
+                  const days    = daysUntil(lineup.game_date!);
+                  const isToday = days === 0;
+                  const isSoon  = days <= 3;
 
                   return (
                     <li key={lineup.id}>
@@ -129,7 +119,6 @@ export default async function DashboardPage() {
                         href={lineup.team_id ? `/teams/${lineup.team_id}` : "/lineups"}
                         className="flex items-center gap-4 px-5 py-3.5 hover:bg-muted/40 transition-colors"
                       >
-                        {/* Date pill */}
                         <div
                           className={`flex w-20 shrink-0 flex-col items-center rounded-md px-2 py-1.5 text-center text-xs font-medium ${
                             isToday
@@ -141,8 +130,6 @@ export default async function DashboardPage() {
                         >
                           {formatGameDate(lineup.game_date!)}
                         </div>
-
-                        {/* Name + team */}
                         <div className="min-w-0 flex-1">
                           <p className="truncate text-sm font-medium">{lineup.name}</p>
                           {lineup.team_id && teamMap[lineup.team_id] && (
@@ -151,8 +138,6 @@ export default async function DashboardPage() {
                             </p>
                           )}
                         </div>
-
-                        {/* Innings badge */}
                         <Badge variant="muted" className="shrink-0 text-xs">
                           {lineup.inning_count} inn.
                         </Badge>
@@ -165,7 +150,7 @@ export default async function DashboardPage() {
           </div>
         </div>
 
-        {/* Right column — weather + AI setup widget */}
+        {/* Right column — weather + AI setup widget (always visible) */}
         <div className="flex flex-col gap-4 lg:col-span-1">
           <WeatherWidget />
           <AiSetupWidget />
