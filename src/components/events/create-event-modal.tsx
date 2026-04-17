@@ -12,18 +12,19 @@ import {
 } from "@/components/ui/dialog";
 import { EventFormFields } from "@/components/events/event-form-fields";
 import type { EventType } from "@/lib/constants/events";
-import type { Roster, Team } from "@/lib/constants/teams";
+import type { GameLineup, Roster, Team } from "@/lib/constants/teams";
 
 type Props = {
   open:          boolean;
   onOpenChange:  (v: boolean) => void;
   teams:         Team[];
   rosters:       Roster[];
+  lineups:       GameLineup[];
   defaultTeamId?: string;
 };
 
 export function CreateEventModal({
-  open, onOpenChange, teams, rosters, defaultTeamId = "",
+  open, onOpenChange, teams, rosters, lineups, defaultTeamId = "",
 }: Props) {
   const router = useRouter();
 
@@ -38,6 +39,7 @@ export function CreateEventModal({
   const [isHome,     setIsHome]     = useState(true);
   const [teamId,     setTeamId]     = useState(defaultTeamId);
   const [rosterId,   setRosterId]   = useState("");
+  const [lineupId,   setLineupId]   = useState("");
   const [done,       setDone]       = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [isPending,  startTransition] = useTransition();
@@ -54,6 +56,7 @@ export function CreateEventModal({
     setIsHome(true);
     setTeamId(defaultTeamId);
     setRosterId("");
+    setLineupId("");
     setDone(false);
     setSubmitError(null);
   }
@@ -74,6 +77,7 @@ export function CreateEventModal({
       const res = await createEvent({
         team_id:    teamId   || null,
         roster_id:  rosterId || null,
+        lineup_id:  lineupId || null,
         type,
         title,
         opponent:   opponent  || null,
@@ -126,8 +130,10 @@ export function CreateEventModal({
                 isHome={isHome}       onIsHome={setIsHome}
                 teamId={teamId}       onTeamId={setTeamId}
                 rosterId={rosterId}   onRosterId={setRosterId}
+                lineupId={lineupId}   onLineupId={setLineupId}
                 teams={teams}
                 rosters={rosters}
+                lineups={lineups}
               />
 
               {submitError && (

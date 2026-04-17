@@ -12,7 +12,7 @@ import {
 } from "@/components/ui/dialog";
 import { EventFormFields } from "@/components/events/event-form-fields";
 import type { TeamEvent, EventType } from "@/lib/constants/events";
-import type { Roster, Team } from "@/lib/constants/teams";
+import type { GameLineup, Roster, Team } from "@/lib/constants/teams";
 
 type Props = {
   event:         TeamEvent;
@@ -20,9 +20,10 @@ type Props = {
   onOpenChange:  (v: boolean) => void;
   teams:         Team[];
   rosters:       Roster[];
+  lineups:       GameLineup[];
 };
 
-export function EditEventModal({ event, open, onOpenChange, teams, rosters }: Props) {
+export function EditEventModal({ event, open, onOpenChange, teams, rosters, lineups }: Props) {
   const router = useRouter();
 
   const [type,       setType]       = useState<EventType>(event.type);
@@ -36,6 +37,7 @@ export function EditEventModal({ event, open, onOpenChange, teams, rosters }: Pr
   const [isHome,     setIsHome]     = useState(event.is_home);
   const [teamId,     setTeamId]     = useState(event.team_id   ?? "");
   const [rosterId,   setRosterId]   = useState(event.roster_id ?? "");
+  const [lineupId,   setLineupId]   = useState(event.lineup_id ?? "");
   const [done,       setDone]       = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [isPending,  startTransition] = useTransition();
@@ -54,6 +56,7 @@ export function EditEventModal({ event, open, onOpenChange, teams, rosters }: Pr
     setIsHome(event.is_home);
     setTeamId(event.team_id     ?? "");
     setRosterId(event.roster_id ?? "");
+    setLineupId(event.lineup_id ?? "");
     setDone(false);
     setSubmitError(null);
   }, [open, event]);
@@ -74,6 +77,7 @@ export function EditEventModal({ event, open, onOpenChange, teams, rosters }: Pr
         id:         event.id,
         team_id:    teamId   || null,
         roster_id:  rosterId || null,
+        lineup_id:  lineupId || null,
         type,
         title,
         opponent:   opponent  || null,
@@ -124,8 +128,10 @@ export function EditEventModal({ event, open, onOpenChange, teams, rosters }: Pr
                 isHome={isHome}       onIsHome={setIsHome}
                 teamId={teamId}       onTeamId={setTeamId}
                 rosterId={rosterId}   onRosterId={setRosterId}
+                lineupId={lineupId}   onLineupId={setLineupId}
                 teams={teams}
                 rosters={rosters}
+                lineups={lineups}
               />
 
               {submitError && (

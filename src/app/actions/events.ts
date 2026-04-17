@@ -28,6 +28,7 @@ export async function createEvent(
         user_id:    user.id,
         team_id:    input.team_id    || null,
         roster_id:  input.roster_id  || null,
+        lineup_id:  input.lineup_id  || null,
         type:       input.type,
         title:      input.title.trim(),
         opponent:   input.opponent?.trim()   || null,
@@ -63,6 +64,7 @@ export async function updateEvent(
       .update({
         team_id:    input.team_id    || null,
         roster_id:  input.roster_id  || null,
+        lineup_id:  input.lineup_id  || null,
         type:       input.type,
         title:      input.title.trim(),
         opponent:   input.opponent?.trim()   || null,

@@ -4,14 +4,15 @@ import { Plus } from "lucide-react";
 import { useState } from "react";
 import { CreateEventModal } from "@/components/events/create-event-modal";
 import { Button } from "@/components/ui/button";
-import type { Roster, Team } from "@/lib/constants/teams";
+import type { GameLineup, Roster, Team } from "@/lib/constants/teams";
 
 type Props = {
   teams:   Team[];
   rosters: Roster[];
+  lineups: GameLineup[];
 };
 
-export function EventsPageToolbar({ teams, rosters }: Props) {
+export function EventsPageToolbar({ teams, rosters, lineups }: Props) {
   const [open, setOpen] = useState(false);
   const [key,  setKey]  = useState(0);
 
@@ -33,6 +34,7 @@ export function EventsPageToolbar({ teams, rosters }: Props) {
         onOpenChange={setOpen}
         teams={teams}
         rosters={rosters}
+        lineups={lineups}
       />
     </>
   );

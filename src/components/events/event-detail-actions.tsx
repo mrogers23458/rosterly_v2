@@ -8,15 +8,16 @@ import { Button } from "@/components/ui/button";
 import { DeleteEventModal } from "@/components/events/delete-event-modal";
 import { EditEventModal } from "@/components/events/edit-event-modal";
 import type { TeamEvent } from "@/lib/constants/events";
-import type { Roster, Team } from "@/lib/constants/teams";
+import type { GameLineup, Roster, Team } from "@/lib/constants/teams";
 
 type Props = {
   event:   TeamEvent;
   teams:   Team[];
   rosters: Roster[];
+  lineups: GameLineup[];
 };
 
-export function EventDetailActions({ event, teams, rosters }: Props) {
+export function EventDetailActions({ event, teams, rosters, lineups }: Props) {
   const router = useRouter();
   const [editOpen,   setEditOpen]   = useState(false);
   const [deleteOpen, setDeleteOpen] = useState(false);
@@ -68,6 +69,7 @@ export function EventDetailActions({ event, teams, rosters }: Props) {
         onOpenChange={setEditOpen}
         teams={teams}
         rosters={rosters}
+        lineups={lineups}
       />
       <DeleteEventModal
         event={event}

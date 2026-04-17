@@ -17,7 +17,7 @@ import {
   type EventType,
   type TeamEvent,
 } from "@/lib/constants/events";
-import type { Roster, Team } from "@/lib/constants/teams";
+import type { GameLineup, Roster, Team } from "@/lib/constants/teams";
 
 type FilterType = EventType | "all";
 type SortKey    = "date-asc" | "date-desc";
@@ -65,16 +65,19 @@ function EventTypeBadge({ type }: { type: EventType }) {
 }
 
 function EventCard({
-  event, teamMap, rosterMap, teams, rosters,
+  event, teamMap, rosterMap, lineupMap, teams, rosters, lineups,
 }: {
   event:     TeamEvent;
   teamMap:   Record<string, Team>;
   rosterMap: Record<string, Roster>;
+  lineupMap: Record<string, GameLineup>;
   teams:     Team[];
   rosters:   Roster[];
+  lineups:   GameLineup[];
 }) {
   const team   = event.team_id   ? teamMap[event.team_id]     : null;
   const roster = event.roster_id ? rosterMap[event.roster_id] : null;
+  const lineup = event.lineup_id ? lineupMap[event.lineup_id] : null;
   const past   = !isUpcoming(event);
 
   return (
@@ -97,7 +100,7 @@ function EventCard({
       <div className="flex shrink-0 items-start justify-between gap-2">
         <EventTypeBadge type={event.type} />
         <div className="relative z-10 flex shrink-0 items-center gap-1">
-          <EventCardActions event={event} teams={teams} rosters={rosters} />
+          <EventCardActions event={event} teams={teams} rosters={rosters} lineups={lineups} />
         </div>
       </div>
 
@@ -146,6 +149,14 @@ function EventCard({
         </div>
       )}
 
+      {/* Linked lineup */}
+      {lineup && (
+        <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+          <LayoutList className="h-3 w-3 shrink-0 text-primary/60" />
+          <span className="line-clamp-1 font-medium text-primary/80">{lineup.name}</span>
+        </div>
+      )}
+
       {/* Notes preview */}
       {event.notes && (
         <p className="mt-auto line-clamp-2 text-xs text-muted-foreground">{event.notes}</p>
@@ -169,15 +180,18 @@ function EventCard({
 }
 
 function EventRow({
-  event, teamMap, rosterMap, teams, rosters,
+  event, teamMap, rosterMap, lineupMap, teams, rosters, lineups,
 }: {
   event:     TeamEvent;
   teamMap:   Record<string, Team>;
   rosterMap: Record<string, Roster>;
+  lineupMap: Record<string, GameLineup>;
   teams:     Team[];
   rosters:   Roster[];
+  lineups:   GameLineup[];
 }) {
-  const team = event.team_id ? teamMap[event.team_id] : null;
+  const team   = event.team_id   ? teamMap[event.team_id]     : null;
+  const lineup = event.lineup_id ? lineupMap[event.lineup_id] : null;
   const past = !isUpcoming(event);
 
   return (
@@ -204,9 +218,17 @@ function EventRow({
             <span className="font-normal text-muted-foreground"> vs. {event.opponent}</span>
           )}
         </p>
-        {team && (
-          <p className="truncate text-xs text-muted-foreground">{team.name}</p>
-        )}
+        <div className="flex items-center gap-2">
+          {team && (
+            <p className="truncate text-xs text-muted-foreground">{team.name}</p>
+          )}
+          {lineup && (
+            <span className="flex shrink-0 items-center gap-1 text-xs font-medium text-primary/80">
+              <LayoutList className="h-3 w-3 text-primary/60" />
+              {lineup.name}
+            </span>
+          )}
+        </div>
       </div>
 
       {/* Date */}
@@ -228,7 +250,7 @@ function EventRow({
 
       {/* Actions */}
       <div className="relative z-10 shrink-0">
-        <EventCardActions event={event} teams={teams} rosters={rosters} />
+        <EventCardActions event={event} teams={teams} rosters={rosters} lineups={lineups} />
       </div>
     </div>
   );
@@ -251,9 +273,10 @@ type Props = {
   events:  TeamEvent[];
   teams:   Team[];
   rosters: Roster[];
+  lineups: GameLineup[];
 };
 
-export function EventBrowser({ events, teams, rosters }: Props) {
+export function EventBrowser({ events, teams, rosters, lineups }: Props) {
   const [typeFilter, setTypeFilter] = useState<FilterType>("all");
   const [teamFilter, setTeamFilter] = useState<string>("all");
   const [search,     setSearch]     = useState("");
@@ -268,6 +291,10 @@ export function EventBrowser({ events, teams, rosters }: Props) {
   const rosterMap = useMemo(
     () => Object.fromEntries(rosters.map((r) => [r.id, r])),
     [rosters],
+  );
+  const lineupMap = useMemo(
+    () => Object.fromEntries(lineups.map((l) => [l.id, l])),
+    [lineups],
   );
 
   const filtered = useMemo(() => {
@@ -332,8 +359,10 @@ export function EventBrowser({ events, teams, rosters }: Props) {
                 event={ev}
                 teamMap={teamMap}
                 rosterMap={rosterMap}
+                lineupMap={lineupMap}
                 teams={teams}
                 rosters={rosters}
+                lineups={lineups}
               />
             ))}
           </div>
@@ -345,8 +374,10 @@ export function EventBrowser({ events, teams, rosters }: Props) {
                 event={ev}
                 teamMap={teamMap}
                 rosterMap={rosterMap}
+                lineupMap={lineupMap}
                 teams={teams}
                 rosters={rosters}
+                lineups={lineups}
               />
             ))}
           </div>
@@ -494,8 +525,10 @@ export function EventBrowser({ events, teams, rosters }: Props) {
                     event={ev}
                     teamMap={teamMap}
                     rosterMap={rosterMap}
+                    lineupMap={lineupMap}
                     teams={teams}
                     rosters={rosters}
+                    lineups={lineups}
                   />
                 ))}
               </div>
@@ -507,8 +540,10 @@ export function EventBrowser({ events, teams, rosters }: Props) {
                     event={ev}
                     teamMap={teamMap}
                     rosterMap={rosterMap}
+                    lineupMap={lineupMap}
                     teams={teams}
                     rosters={rosters}
+                    lineups={lineups}
                   />
                 ))}
               </div>
@@ -539,6 +574,7 @@ export function EventBrowser({ events, teams, rosters }: Props) {
         onOpenChange={setCreateOpen}
         teams={teams}
         rosters={rosters}
+        lineups={lineups}
       />
     </div>
   );

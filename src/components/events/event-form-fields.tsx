@@ -1,8 +1,9 @@
 "use client";
 
+import { LayoutList } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { EVENT_TYPE_META, EVENT_TYPES, type EventType } from "@/lib/constants/events";
-import type { Roster, Team } from "@/lib/constants/teams";
+import type { GameLineup, Roster, Team } from "@/lib/constants/teams";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -19,9 +20,11 @@ type Props = {
   isHome:     boolean;
   teamId:     string;
   rosterId:   string;
+  lineupId:   string;
 
   teams:   Team[];
   rosters: Roster[];
+  lineups: GameLineup[];
 
   onType:      (v: EventType) => void;
   onTitle:     (v: string) => void;
@@ -34,20 +37,31 @@ type Props = {
   onIsHome:    (v: boolean) => void;
   onTeamId:    (v: string) => void;
   onRosterId:  (v: string) => void;
+  onLineupId:  (v: string) => void;
 };
+
+function formatLineupDate(dateStr: string) {
+  const d = new Date(dateStr + "T00:00:00");
+  return d.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
+}
 
 export function EventFormFields({
   type, title, opponent, eventDate, startTime, endTime, location, notes,
-  isHome, teamId, rosterId,
-  teams, rosters,
+  isHome, teamId, rosterId, lineupId,
+  teams, rosters, lineups,
   onType, onTitle, onOpponent, onEventDate, onStartTime, onEndTime,
-  onLocation, onNotes, onIsHome, onTeamId, onRosterId,
+  onLocation, onNotes, onIsHome, onTeamId, onRosterId, onLineupId,
 }: Props) {
   const rostersForTeam = teamId
     ? rosters.filter((r) => r.team_id === teamId && !r.is_archived)
     : [];
 
+  const lineupsForTeam = teamId
+    ? lineups.filter((l) => l.team_id === teamId && !l.is_archived)
+    : lineups.filter((l) => !l.is_archived);
+
   const showOpponent = type === "game" || type === "scrimmage";
+  const showLineup   = type === "game" || type === "scrimmage";
 
   return (
     <div className="flex flex-col gap-4">
@@ -56,8 +70,8 @@ export function EventFormFields({
         <Label>Event type</Label>
         <div className="flex flex-wrap gap-2">
           {EVENT_TYPES.map((t) => {
-            const meta    = EVENT_TYPE_META[t];
-            const active  = t === type;
+            const meta   = EVENT_TYPE_META[t];
+            const active = t === type;
             return (
               <button
                 key={t}
@@ -180,6 +194,7 @@ export function EventFormFields({
               onChange={(e) => {
                 onTeamId(e.target.value);
                 onRosterId("");
+                onLineupId("");
               }}
               className="flex h-9 w-full rounded-md border border-input bg-background px-3 py-1 text-sm shadow-xs transition-colors focus:outline-none focus:ring-1 focus:ring-ring"
             >
@@ -204,6 +219,42 @@ export function EventFormFields({
               ))}
             </select>
           </div>
+        </div>
+      )}
+
+      {/* Game Lineup (game & scrimmage only) */}
+      {showLineup && (
+        <div className="flex flex-col gap-1.5">
+          <Label htmlFor="event-lineup" className="flex items-center gap-1.5">
+            <LayoutList className="h-3.5 w-3.5 text-muted-foreground" />
+            Game lineup
+          </Label>
+          <select
+            id="event-lineup"
+            value={lineupId}
+            onChange={(e) => onLineupId(e.target.value)}
+            disabled={lineupsForTeam.length === 0}
+            className="flex h-9 w-full rounded-md border border-input bg-background px-3 py-1 text-sm shadow-xs transition-colors focus:outline-none focus:ring-1 focus:ring-ring disabled:cursor-not-allowed disabled:opacity-50"
+          >
+            <option value="">No lineup linked</option>
+            {lineupsForTeam.map((l) => (
+              <option key={l.id} value={l.id}>
+                {l.name}
+                {l.game_date ? ` — ${formatLineupDate(l.game_date)}` : ""}
+                {` · ${l.inning_count} inn.`}
+              </option>
+            ))}
+          </select>
+          {lineupsForTeam.length === 0 && teamId && (
+            <p className="text-xs text-muted-foreground">
+              No lineups found for this team. Create one on the Lineups page first.
+            </p>
+          )}
+          {!teamId && (
+            <p className="text-xs text-muted-foreground">
+              Select a team above to link a lineup.
+            </p>
+          )}
         </div>
       )}
 

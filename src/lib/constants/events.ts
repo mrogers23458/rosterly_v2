@@ -42,6 +42,7 @@ export type TeamEvent = {
   user_id:    string;
   team_id:    string | null;
   roster_id:  string | null;
+  lineup_id:  string | null;
   type:       EventType;
   title:      string;
   opponent:   string | null;
@@ -59,6 +60,7 @@ export type TeamEvent = {
 export type CreateEventInput = {
   team_id:    string | null;
   roster_id:  string | null;
+  lineup_id:  string | null;
   type:       EventType;
   title:      string;
   opponent:   string | null;
