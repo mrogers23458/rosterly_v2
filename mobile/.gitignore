@@ -1,0 +1,11 @@
+# Expo-generated directories (native project files built by EAS or expo prebuild)
+.expo/
+android/
+ios/
+dist/
+
+# Env
+.env
+
+# Metro bundler cache
+.metro-health-check*
