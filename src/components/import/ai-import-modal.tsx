@@ -153,7 +153,17 @@ export function AiImportModal({ open, onOpenChange, preselectedTeamId, defaultIn
 
   // ── File selection ──────────────────────────────────────────────────────────
 
+  /** 15 MB — must match next.config.ts serverActions.bodySizeLimit */
+  const MAX_FILE_BYTES = 15 * 1024 * 1024;
+
   function handleFileSelect(selected: File) {
+    if (selected.size > MAX_FILE_BYTES) {
+      setError(
+        `This file is ${(selected.size / 1024 / 1024).toFixed(1)} MB, which exceeds the 15 MB limit. ` +
+        "Please compress the image or use a smaller file.",
+      );
+      return;
+    }
     setFile(selected);
     setError(null);
   }
@@ -179,34 +189,50 @@ export function AiImportModal({ open, onOpenChange, preselectedTeamId, defaultIn
     setStep("extracting");
 
     startTransition(async () => {
-      let res;
-      if (inputMode === "sheets") {
-        res = await extractFromGoogleSheet(sheetUrl.trim());
-      } else {
-        const fd = new FormData();
-        fd.append("file", file!);
-        res = await extractFromFile(fd);
-      }
-      if (res.error || !res.data) {
-        setError(res.error ?? "Extraction failed.");
+      try {
+        let res;
+        if (inputMode === "sheets") {
+          res = await extractFromGoogleSheet(sheetUrl.trim());
+        } else {
+          const fd = new FormData();
+          fd.append("file", file!);
+          res = await extractFromFile(fd);
+        }
+        if (res.error || !res.data) {
+          setError(res.error ?? "Extraction failed.");
+          setStep("upload");
+          return;
+        }
+
+        const data = res.data;
+        setExtraction(data);
+
+        // Auto-configure import options based on source type
+        const hasTeam    = !!data.team.name;
+        const hasRoster  = data.players.length > 0;
+        const hasLineup  = !!data.game_lineup.inning_count && data.lineup_entries.length > 0;
+
+        setCreateTeam(hasTeam && !preselectedTeamId);
+        setCreateRoster(hasRoster || data.source_type === "roster");
+        setImportPlayers(hasRoster);
+        setCreateLineup(hasLineup);
+
+        setStep("review");
+      } catch (err) {
+        const message = err instanceof Error ? err.message : String(err);
+        // Next.js throws this at the network layer before the server action runs
+        const isSizeError =
+          message.toLowerCase().includes("body") ||
+          message.toLowerCase().includes("1 mb") ||
+          message.toLowerCase().includes("limit") ||
+          message.toLowerCase().includes("failed to fetch");
+        setError(
+          isSizeError
+            ? "The file is too large to upload. Try compressing the image or use a file under 15 MB."
+            : `Something went wrong: ${message}. Please try again.`,
+        );
         setStep("upload");
-        return;
       }
-
-      const data = res.data;
-      setExtraction(data);
-
-      // Auto-configure import options based on source type
-      const hasTeam    = !!data.team.name;
-      const hasRoster  = data.players.length > 0;
-      const hasLineup  = !!data.game_lineup.inning_count && data.lineup_entries.length > 0;
-
-      setCreateTeam(hasTeam && !preselectedTeamId);
-      setCreateRoster(hasRoster || data.source_type === "roster");
-      setImportPlayers(hasRoster);
-      setCreateLineup(hasLineup);
-
-      setStep("review");
     });
   }
 
@@ -372,7 +398,7 @@ export function AiImportModal({ open, onOpenChange, preselectedTeamId, defaultIn
                     <div>
                       <p className="font-medium">Drop a file or click to browse</p>
                       <p className="mt-1 text-xs text-muted-foreground">
-                        CSV, TSV, TXT, PNG, JPG, WEBP — up to 10 MB
+                        CSV, TSV, TXT, PNG, JPG, WEBP — up to 15 MB
                       </p>
                     </div>
                     <input
@@ -390,7 +416,9 @@ export function AiImportModal({ open, onOpenChange, preselectedTeamId, defaultIn
                       <div className="min-w-0 flex-1">
                         <p className="truncate text-sm font-medium">{file.name}</p>
                         <p className="text-xs text-muted-foreground">
-                          {(file.size / 1024).toFixed(1)} KB
+                          {file.size >= 1024 * 1024
+                            ? `${(file.size / 1024 / 1024).toFixed(1)} MB`
+                            : `${(file.size / 1024).toFixed(1)} KB`}
                         </p>
                       </div>
                       <Button
