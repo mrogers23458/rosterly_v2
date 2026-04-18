@@ -10,14 +10,19 @@ import type { Team } from "@/lib/constants/teams";
 
 export function RostersPageToolbar({
   teams,
+  writableTeams,
   defaultTeamId,
   importTeamId,
+  canCreate = true,
+  canImport = true,
 }: {
   teams: Team[];
-  /** Pre-select this team in the create form when opening from a team page. */
+  /** Teams the user can actually write rosters to (for create modal dropdown). */
+  writableTeams?: Team[];
   defaultTeamId?: string;
-  /** When set, show an Import from GameChanger button scoped to this team. */
   importTeamId?: string;
+  canCreate?: boolean;
+  canImport?: boolean;
 }) {
   const [open,       setOpen]       = useState(false);
   const [aiOpen,     setAiOpen]     = useState(false);
@@ -26,24 +31,32 @@ export function RostersPageToolbar({
   const [aiKey,     setAiKey]     = useState(0);
   const [importKey, setImportKey] = useState(0);
 
+  if (!canCreate && !canImport) return null;
+
+  const teamsForCreate = writableTeams ?? teams;
+
   return (
     <div className="flex flex-wrap items-center gap-2">
-      <Button
-        type="button"
-        onClick={() => { setDialogKey((k) => k + 1); setOpen(true); }}
-      >
-        <Plus className="h-4 w-4" />
-        Create roster
-      </Button>
-      <Button
-        type="button"
-        variant="outline"
-        onClick={() => { setAiKey((k) => k + 1); setAiOpen(true); }}
-      >
-        <Sparkles className="h-4 w-4" />
-        AI Import
-      </Button>
-      {importTeamId && (
+      {canCreate && (
+        <Button
+          type="button"
+          onClick={() => { setDialogKey((k) => k + 1); setOpen(true); }}
+        >
+          <Plus className="h-4 w-4" />
+          Create roster
+        </Button>
+      )}
+      {canImport && (
+        <Button
+          type="button"
+          variant="outline"
+          onClick={() => { setAiKey((k) => k + 1); setAiOpen(true); }}
+        >
+          <Sparkles className="h-4 w-4" />
+          AI Import
+        </Button>
+      )}
+      {canImport && importTeamId && (
         <Button
           type="button"
           variant="outline"
@@ -53,20 +66,25 @@ export function RostersPageToolbar({
           Import roster
         </Button>
       )}
-      <CreateRosterModal
-        key={`create-${dialogKey}`}
-        teams={teams}
-        defaultTeamId={defaultTeamId}
-        open={open}
-        onOpenChange={setOpen}
-      />
-      <AiImportModal
-        key={`ai-${aiKey}`}
-        open={aiOpen}
-        onOpenChange={setAiOpen}
-        preselectedTeamId={defaultTeamId}
-      />
-      {importTeamId && (
+
+      {canCreate && (
+        <CreateRosterModal
+          key={`create-${dialogKey}`}
+          teams={teamsForCreate}
+          defaultTeamId={defaultTeamId}
+          open={open}
+          onOpenChange={setOpen}
+        />
+      )}
+      {canImport && (
+        <AiImportModal
+          key={`ai-${aiKey}`}
+          open={aiOpen}
+          onOpenChange={setAiOpen}
+          preselectedTeamId={defaultTeamId}
+        />
+      )}
+      {canImport && importTeamId && (
         <GcImportModal
           key={`import-${importKey}`}
           teamId={importTeamId}

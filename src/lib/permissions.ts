@@ -7,6 +7,27 @@ import {
 } from "@/lib/constants/roles";
 
 /**
+ * Returns a map of teamId → role for every team the current user belongs to.
+ * Useful on cross-team pages (rosters, lineups, events, players) where you
+ * need per-team permission checks in one DB round-trip.
+ */
+export async function getUserTeamRoles(
+  supabase: SupabaseClient,
+  userId: string,
+): Promise<Record<string, TeamRole>> {
+  const { data } = await supabase
+    .from("team_members")
+    .select("team_id, role")
+    .eq("user_id", userId);
+
+  const map: Record<string, TeamRole> = {};
+  for (const row of data ?? []) {
+    map[row.team_id] = row.role as TeamRole;
+  }
+  return map;
+}
+
+/**
  * Returns the current user's role on a team, or null if they have no
  * membership record (e.g. not a member, or not authenticated).
  */

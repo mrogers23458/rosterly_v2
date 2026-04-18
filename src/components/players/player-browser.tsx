@@ -7,12 +7,14 @@ import { PlayerRowActions } from "@/components/players/player-row-actions";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
+import type { TeamRole } from "@/lib/constants/roles";
 import type { Player, Roster, Team } from "@/lib/constants/teams";
 
 type Props = {
   players: Player[];
   rosters: Roster[];
   teams: Team[];
+  teamRoles?: Record<string, TeamRole>;
 };
 
 type EnrichedPlayer = Player & {
@@ -21,7 +23,7 @@ type EnrichedPlayer = Player & {
   teamName: string;
 };
 
-export function PlayerBrowser({ players, rosters, teams }: Props) {
+export function PlayerBrowser({ players, rosters, teams, teamRoles }: Props) {
   const [teamFilter, setTeamFilter] = useState<string>("all");
   const [rosterFilter, setRosterFilter] = useState<string>("all");
   const [search, setSearch] = useState("");
@@ -241,7 +243,12 @@ export function PlayerBrowser({ players, rosters, teams }: Props) {
                     <Badge variant={p.is_active ? "success" : "muted"} className="shrink-0 text-[10px]">
                       {p.is_active ? "Active" : "Inactive"}
                     </Badge>
-                    <PlayerRowActions player={p} teamId={p.teamId} rosterId={p.roster_id} />
+                    <PlayerRowActions
+                      player={p}
+                      teamId={p.teamId}
+                      rosterId={p.roster_id}
+                      userRole={p.teamId ? teamRoles?.[p.teamId] : null}
+                    />
                   </div>
                 </div>
                 <p className="shrink-0 text-xs text-muted-foreground">

@@ -7,14 +7,16 @@ import { RosterCardActions } from "@/components/rosters/roster-card-actions";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
+import type { TeamRole } from "@/lib/constants/roles";
 import type { Roster, Team } from "@/lib/constants/teams";
 
 type Props = {
   rosters: Roster[];
   teams: Team[];
+  teamRoles?: Record<string, TeamRole>;
 };
 
-export function RosterBrowser({ rosters, teams }: Props) {
+export function RosterBrowser({ rosters, teams, teamRoles }: Props) {
   const [teamFilter, setTeamFilter] = useState<string>("all");
   const [search,     setSearch]     = useState("");
 
@@ -116,6 +118,7 @@ export function RosterBrowser({ rosters, teams }: Props) {
               roster={roster}
               team={roster.team_id ? teamMap[roster.team_id] : null}
               allTeams={teams}
+              userRole={roster.team_id ? teamRoles?.[roster.team_id] : null}
             />
           ))}
         </div>
@@ -128,10 +131,12 @@ function RosterCard({
   roster,
   team,
   allTeams,
+  userRole,
 }: {
   roster: Roster;
   team: Team | null | undefined;
   allTeams: Team[];
+  userRole?: import("@/lib/constants/roles").TeamRole | null;
 }) {
   const canLink = Boolean(roster.team_id);
 
@@ -153,7 +158,7 @@ function RosterCard({
           <Badge variant={roster.is_active ? "success" : "muted"} className="shrink-0">
             {roster.is_active ? "Active" : "Inactive"}
           </Badge>
-          <RosterCardActions roster={roster} teams={allTeams} />
+          <RosterCardActions roster={roster} teams={allTeams} userRole={userRole} />
         </div>
       </div>
 

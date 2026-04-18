@@ -2,12 +2,16 @@ import { cookies } from "next/headers";
 import { createClient } from "@/utils/supabase/server";
 import { EventBrowser } from "@/components/events/event-browser";
 import { EventsPageToolbar } from "@/components/events/events-page-toolbar";
+import { getUserTeamRoles } from "@/lib/permissions";
+import { can } from "@/lib/constants/roles";
 import type { GameLineup, Roster, Team } from "@/lib/constants/teams";
 import type { TeamEvent } from "@/lib/constants/events";
 
 export default async function EventsPage() {
   const cookieStore = await cookies();
   const supabase    = createClient(cookieStore);
+
+  const { data: { user } } = await supabase.auth.getUser();
 
   const [{ data: events }, { data: teams }, { data: rosters }, { data: lineups }] =
     await Promise.all([
@@ -37,6 +41,9 @@ export default async function EventsPage() {
   const teamList   = (teams   ?? []) as Team[];
   const rosterList = (rosters ?? []) as Roster[];
   const lineupList = (lineups ?? []) as GameLineup[];
+  const teamRoles  = user ? await getUserTeamRoles(supabase, user.id) : {};
+
+  const canCreateEvent = Object.values(teamRoles).some((r) => can(r, "event:create"));
 
   return (
     <div className="px-4 py-8 sm:px-6 md:px-8">
@@ -51,6 +58,7 @@ export default async function EventsPage() {
           teams={teamList}
           rosters={rosterList}
           lineups={lineupList}
+          canCreate={canCreateEvent}
         />
       </div>
 
@@ -59,6 +67,7 @@ export default async function EventsPage() {
         teams={teamList}
         rosters={rosterList}
         lineups={lineupList}
+        teamRoles={teamRoles}
       />
     </div>
   );

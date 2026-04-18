@@ -6,6 +6,8 @@ import { createClient } from "@/utils/supabase/server";
 import { LineupDetailActions } from "@/components/lineups/lineup-detail-actions";
 import { LineupViewTable } from "@/components/lineups/lineup-view-table";
 import { Badge } from "@/components/ui/badge";
+import { getUserTeamRole } from "@/lib/permissions";
+import type { TeamRole } from "@/lib/constants/roles";
 import type { GameLineup, LineupEntry, Player, Roster, Team } from "@/lib/constants/teams";
 
 type Props = { params: Promise<{ id: string }> };
@@ -68,6 +70,11 @@ export default async function LineupDetailPage({ params }: Props) {
   const team          = teamRaw         as Team | null;
   const roster        = rosterRaw       as Roster | null;
   const activeRosters = (activeRostersRaw ?? []) as Roster[];
+
+  const { data: { user } } = await supabase.auth.getUser();
+  const userRole: TeamRole = (user && lineup.team_id)
+    ? ((await getUserTeamRole(supabase, user.id, lineup.team_id)) ?? "viewer")
+    : "viewer";
 
   // Build players map for edit modal
   const rosterPlayersMap: Record<string, Player[]> = {};
@@ -149,6 +156,7 @@ export default async function LineupDetailPage({ params }: Props) {
             lineup={lineup}
             activeRosters={activeRosters}
             rosterPlayersMap={rosterPlayersMap}
+            userRole={userRole}
           />
         </div>
       </div>

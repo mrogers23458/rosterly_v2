@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useState } from "react";
 import { LineupCardActions } from "@/components/lineups/lineup-card-actions";
 import { Badge } from "@/components/ui/badge";
+import type { TeamRole } from "@/lib/constants/roles";
 import type { GameLineup, Player, Roster } from "@/lib/constants/teams";
 
 function formatDate(dateStr: string) {
@@ -17,9 +18,10 @@ type Props = {
   rosterNameMap: Record<string, string>;
   activeRosters: Roster[];
   rosterPlayersMap: Record<string, Player[]>;
+  userRole?: TeamRole | null;
 };
 
-export function LineupsArchivedSection({ lineups, rosterNameMap, activeRosters, rosterPlayersMap }: Props) {
+export function LineupsArchivedSection({ lineups, rosterNameMap, activeRosters, rosterPlayersMap, userRole }: Props) {
   const [expanded, setExpanded] = useState(false);
   if (lineups.length === 0) return null;
 
@@ -50,6 +52,7 @@ export function LineupsArchivedSection({ lineups, rosterNameMap, activeRosters, 
                     lineup={lineup}
                     activeRosters={activeRosters}
                     rosterPlayersMap={rosterPlayersMap}
+                    userRole={userRole}
                   />
                 </div>
               </div>

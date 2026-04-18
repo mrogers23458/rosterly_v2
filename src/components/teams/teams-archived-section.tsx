@@ -6,9 +6,16 @@ import { useState } from "react";
 import { TeamCardActions } from "@/components/teams/team-card-actions";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import type { TeamRole } from "@/lib/constants/roles";
 import type { Team } from "@/lib/constants/teams";
 
-export function TeamsArchivedSection({ teams }: { teams: Team[] }) {
+export function TeamsArchivedSection({
+  teams,
+  teamRoles,
+}: {
+  teams: Team[];
+  teamRoles?: Record<string, TeamRole>;
+}) {
   const [expanded, setExpanded] = useState(false);
 
   return (
@@ -26,7 +33,7 @@ export function TeamsArchivedSection({ teams }: { teams: Team[] }) {
       {expanded && (
         <div className="mt-3 grid grid-cols-1 items-stretch gap-3 sm:grid-cols-2 lg:grid-cols-3">
           {teams.map((team) => (
-            <ArchivedTeamCard key={team.id} team={team} />
+            <ArchivedTeamCard key={team.id} team={team} userRole={teamRoles?.[team.id]} />
           ))}
         </div>
       )}
@@ -34,7 +41,7 @@ export function TeamsArchivedSection({ teams }: { teams: Team[] }) {
   );
 }
 
-function ArchivedTeamCard({ team }: { team: Team }) {
+function ArchivedTeamCard({ team, userRole }: { team: Team; userRole?: TeamRole | null }) {
   return (
     <div className="group relative flex h-full min-h-0 flex-col gap-2 rounded-lg border border-border bg-muted/40 p-4 opacity-75 transition-all duration-150 hover:-translate-y-0.5 hover:shadow-md hover:opacity-90">
       <Link
@@ -50,7 +57,7 @@ function ArchivedTeamCard({ team }: { team: Team }) {
         <div className="flex shrink-0 items-center gap-1">
           <Badge variant="muted">Archived</Badge>
           <div className="relative z-10">
-            <TeamCardActions team={team} />
+            <TeamCardActions team={team} userRole={userRole} />
           </div>
         </div>
       </div>

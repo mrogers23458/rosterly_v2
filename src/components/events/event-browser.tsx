@@ -11,6 +11,7 @@ import { CreateEventModal } from "@/components/events/create-event-modal";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
+import type { TeamRole } from "@/lib/constants/roles";
 import {
   EVENT_TYPE_META,
   EVENT_TYPES,
@@ -65,7 +66,7 @@ function EventTypeBadge({ type }: { type: EventType }) {
 }
 
 function EventCard({
-  event, teamMap, rosterMap, lineupMap, teams, rosters, lineups,
+  event, teamMap, rosterMap, lineupMap, teams, rosters, lineups, userRole,
 }: {
   event:     TeamEvent;
   teamMap:   Record<string, Team>;
@@ -74,6 +75,7 @@ function EventCard({
   teams:     Team[];
   rosters:   Roster[];
   lineups:   GameLineup[];
+  userRole?: TeamRole | null;
 }) {
   const team   = event.team_id   ? teamMap[event.team_id]     : null;
   const roster = event.roster_id ? rosterMap[event.roster_id] : null;
@@ -108,7 +110,7 @@ function EventCard({
           )}
         </div>
         <div className="relative z-10 flex shrink-0 items-center gap-1">
-          <EventCardActions event={event} teams={teams} rosters={rosters} lineups={lineups} />
+          <EventCardActions event={event} teams={teams} rosters={rosters} lineups={lineups} userRole={userRole} />
         </div>
       </div>
 
@@ -188,7 +190,7 @@ function EventCard({
 }
 
 function EventRow({
-  event, teamMap, rosterMap, lineupMap, teams, rosters, lineups,
+  event, teamMap, rosterMap, lineupMap, teams, rosters, lineups, userRole,
 }: {
   event:     TeamEvent;
   teamMap:   Record<string, Team>;
@@ -197,6 +199,7 @@ function EventRow({
   teams:     Team[];
   rosters:   Roster[];
   lineups:   GameLineup[];
+  userRole?: TeamRole | null;
 }) {
   const team   = event.team_id   ? teamMap[event.team_id]     : null;
   const lineup = event.lineup_id ? lineupMap[event.lineup_id] : null;
@@ -258,7 +261,7 @@ function EventRow({
 
       {/* Actions */}
       <div className="relative z-10 shrink-0">
-        <EventCardActions event={event} teams={teams} rosters={rosters} lineups={lineups} />
+        <EventCardActions event={event} teams={teams} rosters={rosters} lineups={lineups} userRole={userRole} />
       </div>
     </div>
   );
@@ -278,13 +281,14 @@ function EmptyState({ filtered }: { filtered: boolean }) {
 // ── main component ────────────────────────────────────────────────────────────
 
 type Props = {
-  events:  TeamEvent[];
-  teams:   Team[];
-  rosters: Roster[];
-  lineups: GameLineup[];
+  events:    TeamEvent[];
+  teams:     Team[];
+  rosters:   Roster[];
+  lineups:   GameLineup[];
+  teamRoles?: Record<string, TeamRole>;
 };
 
-export function EventBrowser({ events, teams, rosters, lineups }: Props) {
+export function EventBrowser({ events, teams, rosters, lineups, teamRoles }: Props) {
   const [typeFilter, setTypeFilter] = useState<FilterType>("all");
   const [teamFilter, setTeamFilter] = useState<string>("all");
   const [search,     setSearch]     = useState("");
@@ -371,6 +375,7 @@ export function EventBrowser({ events, teams, rosters, lineups }: Props) {
                 teams={teams}
                 rosters={rosters}
                 lineups={lineups}
+                userRole={ev.team_id ? teamRoles?.[ev.team_id] : null}
               />
             ))}
           </div>
@@ -386,6 +391,7 @@ export function EventBrowser({ events, teams, rosters, lineups }: Props) {
                 teams={teams}
                 rosters={rosters}
                 lineups={lineups}
+                userRole={ev.team_id ? teamRoles?.[ev.team_id] : null}
               />
             ))}
           </div>
@@ -537,6 +543,7 @@ export function EventBrowser({ events, teams, rosters, lineups }: Props) {
                     teams={teams}
                     rosters={rosters}
                     lineups={lineups}
+                    userRole={ev.team_id ? teamRoles?.[ev.team_id] : null}
                   />
                 ))}
               </div>
@@ -552,6 +559,7 @@ export function EventBrowser({ events, teams, rosters, lineups }: Props) {
                     teams={teams}
                     rosters={rosters}
                     lineups={lineups}
+                    userRole={ev.team_id ? teamRoles?.[ev.team_id] : null}
                   />
                 ))}
               </div>

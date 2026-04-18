@@ -11,6 +11,8 @@ import {
 } from "@/components/ui/dialog";
 import { DeleteEventModal } from "@/components/events/delete-event-modal";
 import { EditEventModal }   from "@/components/events/edit-event-modal";
+import { can } from "@/lib/constants/roles";
+import type { TeamRole } from "@/lib/constants/roles";
 import type { TeamEvent } from "@/lib/constants/events";
 import type { GameLineup, Roster, Team } from "@/lib/constants/teams";
 
@@ -21,17 +23,24 @@ type Props = {
   teams:   Team[];
   rosters: Roster[];
   lineups: GameLineup[];
+  userRole?: TeamRole | null;
 };
 
-export function EventDetailActions({ event, teams, rosters, lineups }: Props) {
+export function EventDetailActions({ event, teams, rosters, lineups, userRole }: Props) {
   const router = useRouter();
   const isRecurring = Boolean(event.recurrence_group_id);
+
+  const canEdit    = can(userRole, "event:edit");
+  const canArchive = can(userRole, "event:archive");
+  const canDelete  = can(userRole, "event:delete");
 
   const [editOpen,    setEditOpen]    = useState(false);
   const [deleteOpen,  setDeleteOpen]  = useState(false);
   const [archiveOpen, setArchiveOpen] = useState(false);
   const [archiveScope, setArchiveScope] = useState<Scope>("this");
   const [isPending, startTransition]  = useTransition();
+
+  if (!canEdit && !canArchive && !canDelete) return null;
 
   function handleArchiveClick() {
     if (isRecurring) {
@@ -56,47 +65,48 @@ export function EventDetailActions({ event, teams, rosters, lineups }: Props) {
   return (
     <>
       <div className="flex items-center gap-2">
-        <Button variant="outline" size="sm" onClick={() => setEditOpen(true)}>
-          <Pencil className="mr-1.5 h-3.5 w-3.5" />
-          Edit
-        </Button>
+        {canEdit && (
+          <Button variant="outline" size="sm" onClick={() => setEditOpen(true)}>
+            <Pencil className="mr-1.5 h-3.5 w-3.5" />
+            Edit
+          </Button>
+        )}
 
-        <Button
-          variant="outline" size="sm"
-          onClick={handleArchiveClick}
-          disabled={isPending}
-        >
-          {event.is_archived
-            ? <ArchiveRestore className="mr-1.5 h-3.5 w-3.5" />
-            : <Archive        className="mr-1.5 h-3.5 w-3.5" />}
-          {event.is_archived ? "Unarchive" : "Archive"}
-        </Button>
+        {canArchive && (
+          <Button variant="outline" size="sm" onClick={handleArchiveClick} disabled={isPending}>
+            {event.is_archived
+              ? <ArchiveRestore className="mr-1.5 h-3.5 w-3.5" />
+              : <Archive        className="mr-1.5 h-3.5 w-3.5" />}
+            {event.is_archived ? "Unarchive" : "Archive"}
+          </Button>
+        )}
 
-        <Button
-          variant="outline" size="sm"
-          className="text-destructive hover:bg-destructive/10 hover:text-destructive"
-          onClick={() => setDeleteOpen(true)}
-        >
-          <Trash2 className="mr-1.5 h-3.5 w-3.5" />
-          Delete
-        </Button>
+        {canDelete && (
+          <Button
+            variant="outline" size="sm"
+            className="text-destructive hover:bg-destructive/10 hover:text-destructive"
+            onClick={() => setDeleteOpen(true)}
+          >
+            <Trash2 className="mr-1.5 h-3.5 w-3.5" />
+            Delete
+          </Button>
+        )}
       </div>
 
-      <EditEventModal
-        key={`edit-${event.id}-${String(editOpen)}`}
-        event={event}
-        open={editOpen}
-        onOpenChange={setEditOpen}
-        teams={teams}
-        rosters={rosters}
-        lineups={lineups}
-      />
-      <DeleteEventModal
-        event={event}
-        open={deleteOpen}
-        onOpenChange={setDeleteOpen}
-        redirectTo="/events"
-      />
+      {canEdit && (
+        <EditEventModal
+          key={`edit-${event.id}-${String(editOpen)}`}
+          event={event}
+          open={editOpen}
+          onOpenChange={setEditOpen}
+          teams={teams}
+          rosters={rosters}
+          lineups={lineups}
+        />
+      )}
+      {canDelete && (
+        <DeleteEventModal event={event} open={deleteOpen} onOpenChange={setDeleteOpen} redirectTo="/events" />
+      )}
 
       {/* Archive scope dialog — only shown for recurring events */}
       <Dialog open={archiveOpen} onOpenChange={setArchiveOpen}>

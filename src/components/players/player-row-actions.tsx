@@ -7,19 +7,27 @@ import { setPlayerIsActive } from "@/app/actions/players";
 import { DeletePlayerModal } from "@/components/players/delete-player-modal";
 import { EditPlayerModal } from "@/components/players/edit-player-modal";
 import { Button } from "@/components/ui/button";
+import { can } from "@/lib/constants/roles";
+import type { TeamRole } from "@/lib/constants/roles";
 import type { Player } from "@/lib/constants/teams";
 
 type Props = {
   player: Player;
   teamId: string | null;
   rosterId: string;
+  userRole?: TeamRole | null;
 };
 
-export function PlayerRowActions({ player, teamId, rosterId }: Props) {
+export function PlayerRowActions({ player, teamId, rosterId, userRole }: Props) {
   const router = useRouter();
   const [editOpen,   setEditOpen]   = useState(false);
   const [deleteOpen, setDeleteOpen] = useState(false);
   const [isPending, startTransition] = useTransition();
+
+  const canEdit   = can(userRole, "player:edit");
+  const canDelete = can(userRole, "player:delete");
+
+  if (!canEdit && !canDelete) return null;
 
   function handleActiveToggle() {
     startTransition(async () => {
@@ -31,59 +39,51 @@ export function PlayerRowActions({ player, teamId, rosterId }: Props) {
   return (
     <>
       <div className="flex items-center gap-1">
-        <Button
-          variant="ghost"
-          size="icon"
-          className="h-7 w-7 text-muted-foreground hover:text-foreground"
-          onClick={() => setEditOpen(true)}
-          title="Edit player"
-        >
-          <Pencil className="h-3.5 w-3.5" />
-          <span className="sr-only">Edit</span>
-        </Button>
+        {canEdit && (
+          <Button
+            variant="ghost" size="icon"
+            className="h-7 w-7 text-muted-foreground hover:text-foreground"
+            onClick={() => setEditOpen(true)} title="Edit player"
+          >
+            <Pencil className="h-3.5 w-3.5" />
+            <span className="sr-only">Edit</span>
+          </Button>
+        )}
 
-        <Button
-          variant="ghost"
-          size="icon"
-          className="h-7 w-7 text-muted-foreground hover:text-foreground"
-          onClick={handleActiveToggle}
-          disabled={isPending}
-          title={player.is_active ? "Mark inactive (archive)" : "Mark active (restore)"}
-        >
-          {player.is_active ? (
-            <Archive className="h-3.5 w-3.5" />
-          ) : (
-            <ArchiveRestore className="h-3.5 w-3.5" />
-          )}
-          <span className="sr-only">{player.is_active ? "Archive" : "Restore"}</span>
-        </Button>
+        {canEdit && (
+          <Button
+            variant="ghost" size="icon"
+            className="h-7 w-7 text-muted-foreground hover:text-foreground"
+            onClick={handleActiveToggle} disabled={isPending}
+            title={player.is_active ? "Mark inactive" : "Mark active"}
+          >
+            {player.is_active ? (
+              <Archive className="h-3.5 w-3.5" />
+            ) : (
+              <ArchiveRestore className="h-3.5 w-3.5" />
+            )}
+            <span className="sr-only">{player.is_active ? "Archive" : "Restore"}</span>
+          </Button>
+        )}
 
-        <Button
-          variant="ghost"
-          size="icon"
-          className="h-7 w-7 text-muted-foreground hover:text-destructive"
-          onClick={() => setDeleteOpen(true)}
-          title="Remove player"
-        >
-          <Trash2 className="h-3.5 w-3.5" />
-          <span className="sr-only">Delete</span>
-        </Button>
+        {canDelete && (
+          <Button
+            variant="ghost" size="icon"
+            className="h-7 w-7 text-muted-foreground hover:text-destructive"
+            onClick={() => setDeleteOpen(true)} title="Remove player"
+          >
+            <Trash2 className="h-3.5 w-3.5" />
+            <span className="sr-only">Delete</span>
+          </Button>
+        )}
       </div>
 
-      <EditPlayerModal
-        player={player}
-        teamId={teamId}
-        rosterId={rosterId}
-        open={editOpen}
-        onOpenChange={setEditOpen}
-      />
-      <DeletePlayerModal
-        player={player}
-        teamId={teamId}
-        rosterId={rosterId}
-        open={deleteOpen}
-        onOpenChange={setDeleteOpen}
-      />
+      {canEdit && (
+        <EditPlayerModal player={player} teamId={teamId} rosterId={rosterId} open={editOpen} onOpenChange={setEditOpen} />
+      )}
+      {canDelete && (
+        <DeletePlayerModal player={player} teamId={teamId} rosterId={rosterId} open={deleteOpen} onOpenChange={setDeleteOpen} />
+      )}
     </>
   );
 }

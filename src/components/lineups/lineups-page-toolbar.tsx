@@ -11,49 +11,67 @@ type Props = {
   teams:            Team[];
   rosters:          Roster[];
   rosterPlayersMap: Record<string, Player[]>;
-  /** When set (e.g. on a team detail page), pre-select this team inside the modal. */
   initialTeamId?:   string;
+  canCreate?:       boolean;
+  canImport?:       boolean;
 };
 
-export function LineupsPageToolbar({ teams, rosters, rosterPlayersMap, initialTeamId }: Props) {
+export function LineupsPageToolbar({
+  teams,
+  rosters,
+  rosterPlayersMap,
+  initialTeamId,
+  canCreate = true,
+  canImport = true,
+}: Props) {
   const [open,      setOpen]      = useState(false);
   const [aiOpen,    setAiOpen]    = useState(false);
   const [dialogKey, setDialogKey] = useState(0);
   const [aiKey,     setAiKey]     = useState(0);
 
+  if (!canCreate && !canImport) return null;
+
   return (
     <div className="flex flex-wrap items-center gap-2">
-      <Button
-        type="button"
-        variant="outline"
-        onClick={() => { setAiKey((k) => k + 1); setAiOpen(true); }}
-      >
-        <Sparkles className="h-4 w-4" />
-        AI Import
-      </Button>
-      <Button
-        type="button"
-        onClick={() => { setDialogKey((k) => k + 1); setOpen(true); }}
-      >
-        <LayoutList className="h-4 w-4" />
-        Create lineup
-      </Button>
+      {canImport && (
+        <Button
+          type="button"
+          variant="outline"
+          onClick={() => { setAiKey((k) => k + 1); setAiOpen(true); }}
+        >
+          <Sparkles className="h-4 w-4" />
+          AI Import
+        </Button>
+      )}
+      {canCreate && (
+        <Button
+          type="button"
+          onClick={() => { setDialogKey((k) => k + 1); setOpen(true); }}
+        >
+          <LayoutList className="h-4 w-4" />
+          Create lineup
+        </Button>
+      )}
 
-      <CreateLineupModal
-        key={dialogKey}
-        initialTeamId={initialTeamId}
-        allTeams={teams}
-        allRosters={rosters}
-        rosterPlayersMap={rosterPlayersMap}
-        open={open}
-        onOpenChange={setOpen}
-      />
-      <AiImportModal
-        key={`ai-${aiKey}`}
-        open={aiOpen}
-        onOpenChange={setAiOpen}
-        preselectedTeamId={initialTeamId}
-      />
+      {canCreate && (
+        <CreateLineupModal
+          key={dialogKey}
+          initialTeamId={initialTeamId}
+          allTeams={teams}
+          allRosters={rosters}
+          rosterPlayersMap={rosterPlayersMap}
+          open={open}
+          onOpenChange={setOpen}
+        />
+      )}
+      {canImport && (
+        <AiImportModal
+          key={`ai-${aiKey}`}
+          open={aiOpen}
+          onOpenChange={setAiOpen}
+          preselectedTeamId={initialTeamId}
+        />
+      )}
     </div>
   );
 }

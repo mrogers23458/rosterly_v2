@@ -5,9 +5,16 @@ import { useMemo, useState } from "react";
 import { TeamCard } from "@/components/teams/team-card";
 import { SortableCardGrid } from "@/components/ui/sortable-card-grid";
 import { Input } from "@/components/ui/input";
+import type { TeamRole } from "@/lib/constants/roles";
 import type { Team } from "@/lib/constants/teams";
 
-export function TeamsDirectory({ teams }: { teams: Team[] }) {
+export function TeamsDirectory({
+  teams,
+  teamRoles,
+}: {
+  teams: Team[];
+  teamRoles?: Record<string, TeamRole>;
+}) {
   const [search, setSearch] = useState("");
 
   const filtered = useMemo(() => {
@@ -15,16 +22,8 @@ export function TeamsDirectory({ teams }: { teams: Team[] }) {
     const q = search.toLowerCase();
     return teams.filter((t) => {
       const hay = [
-        t.name,
-        t.year,
-        t.season,
-        t.division,
-        t.age_group,
-        t.team_type,
-        t.organization ?? "",
-      ]
-        .join(" ")
-        .toLowerCase();
+        t.name, t.year, t.season, t.division, t.age_group, t.team_type, t.organization ?? "",
+      ].join(" ").toLowerCase();
       return hay.includes(q);
     });
   }, [teams, search]);
@@ -53,7 +52,7 @@ export function TeamsDirectory({ teams }: { teams: Team[] }) {
           storageKey="teams"
           items={filtered.map((team) => ({
             id: team.id,
-            node: <TeamCard team={team} />,
+            node: <TeamCard team={team} userRole={teamRoles?.[team.id]} />,
           }))}
         />
       )}

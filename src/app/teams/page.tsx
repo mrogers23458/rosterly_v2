@@ -4,16 +4,24 @@ import { TeamsArchivedSection } from "@/components/teams/teams-archived-section"
 import { TeamsDirectory } from "@/components/teams/teams-directory";
 import { TeamsEmptyState } from "@/components/teams/teams-empty-state";
 import { TeamsPageToolbar } from "@/components/teams/teams-page-toolbar";
+import { getUserTeamRoles } from "@/lib/permissions";
 import type { Team } from "@/lib/constants/teams";
+import type { TeamRole } from "@/lib/constants/roles";
 
 export default async function TeamsPage() {
   const cookieStore = await cookies();
   const supabase = createClient(cookieStore);
 
+  const { data: { user } } = await supabase.auth.getUser();
+
   const { data: teams, error } = await supabase
     .from("teams")
     .select("*")
     .order("created_at", { ascending: false });
+
+  const teamRoles: Record<string, TeamRole> = user
+    ? await getUserTeamRoles(supabase, user.id)
+    : {};
 
   const activeTeams   = (teams as Team[] | null)?.filter((t) => !t.is_archived) ?? [];
   const archivedTeams = (teams as Team[] | null)?.filter((t) => t.is_archived) ?? [];
@@ -27,6 +35,7 @@ export default async function TeamsPage() {
             Your teams and seasons. Search below, or create and import from the toolbar.
           </p>
         </div>
+        {/* TeamsPageToolbar (create team) is always visible — users can always create their own team */}
         {!error && <TeamsPageToolbar />}
       </div>
 
@@ -40,10 +49,12 @@ export default async function TeamsPage() {
         <TeamsEmptyState />
       )}
 
-      {!error && activeTeams.length > 0 && <TeamsDirectory teams={activeTeams} />}
+      {!error && activeTeams.length > 0 && (
+        <TeamsDirectory teams={activeTeams} teamRoles={teamRoles} />
+      )}
 
       {!error && archivedTeams.length > 0 && (
-        <TeamsArchivedSection teams={archivedTeams} />
+        <TeamsArchivedSection teams={archivedTeams} teamRoles={teamRoles} />
       )}
     </div>
   );

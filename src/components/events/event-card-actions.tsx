@@ -11,6 +11,8 @@ import {
 } from "@/components/ui/dialog";
 import { DeleteEventModal } from "@/components/events/delete-event-modal";
 import { EditEventModal }   from "@/components/events/edit-event-modal";
+import { can } from "@/lib/constants/roles";
+import type { TeamRole } from "@/lib/constants/roles";
 import type { TeamEvent } from "@/lib/constants/events";
 import type { GameLineup, Roster, Team } from "@/lib/constants/teams";
 
@@ -22,17 +24,24 @@ type Props = {
   rosters:     Roster[];
   lineups:     GameLineup[];
   redirectAfterDelete?: string;
+  userRole?: TeamRole | null;
 };
 
-export function EventCardActions({ event, teams, rosters, lineups, redirectAfterDelete }: Props) {
+export function EventCardActions({ event, teams, rosters, lineups, redirectAfterDelete, userRole }: Props) {
   const router = useRouter();
   const isRecurring = Boolean(event.recurrence_group_id);
+
+  const canEdit    = can(userRole, "event:edit");
+  const canArchive = can(userRole, "event:archive");
+  const canDelete  = can(userRole, "event:delete");
 
   const [editOpen,    setEditOpen]    = useState(false);
   const [deleteOpen,  setDeleteOpen]  = useState(false);
   const [archiveOpen, setArchiveOpen] = useState(false);
   const [archiveScope, setArchiveScope] = useState<Scope>("this");
   const [isPending, startTransition]  = useTransition();
+
+  if (!canEdit && !canArchive && !canDelete) return null;
 
   function handleArchiveClick() {
     if (isRecurring) {
@@ -57,55 +66,65 @@ export function EventCardActions({ event, teams, rosters, lineups, redirectAfter
   return (
     <>
       <div className="flex items-center gap-1">
-        <Button
-          variant="ghost" size="icon"
-          className="h-7 w-7 text-muted-foreground hover:text-foreground"
-          onClick={() => setEditOpen(true)}
-          title="Edit event"
-        >
-          <Pencil className="h-3.5 w-3.5" />
-          <span className="sr-only">Edit</span>
-        </Button>
+        {canEdit && (
+          <Button
+            variant="ghost" size="icon"
+            className="h-7 w-7 text-muted-foreground hover:text-foreground"
+            onClick={() => setEditOpen(true)}
+            title="Edit event"
+          >
+            <Pencil className="h-3.5 w-3.5" />
+            <span className="sr-only">Edit</span>
+          </Button>
+        )}
 
-        <Button
-          variant="ghost" size="icon"
-          className="h-7 w-7 text-muted-foreground hover:text-foreground"
-          onClick={handleArchiveClick}
-          disabled={isPending}
-          title={event.is_archived ? "Unarchive event" : "Archive event"}
-        >
-          {event.is_archived
-            ? <ArchiveRestore className="h-3.5 w-3.5" />
-            : <Archive        className="h-3.5 w-3.5" />}
-          <span className="sr-only">{event.is_archived ? "Unarchive" : "Archive"}</span>
-        </Button>
+        {canArchive && (
+          <Button
+            variant="ghost" size="icon"
+            className="h-7 w-7 text-muted-foreground hover:text-foreground"
+            onClick={handleArchiveClick}
+            disabled={isPending}
+            title={event.is_archived ? "Unarchive event" : "Archive event"}
+          >
+            {event.is_archived
+              ? <ArchiveRestore className="h-3.5 w-3.5" />
+              : <Archive        className="h-3.5 w-3.5" />}
+            <span className="sr-only">{event.is_archived ? "Unarchive" : "Archive"}</span>
+          </Button>
+        )}
 
-        <Button
-          variant="ghost" size="icon"
-          className="h-7 w-7 text-muted-foreground hover:text-destructive"
-          onClick={() => setDeleteOpen(true)}
-          title="Delete event"
-        >
-          <Trash2 className="h-3.5 w-3.5" />
-          <span className="sr-only">Delete</span>
-        </Button>
+        {canDelete && (
+          <Button
+            variant="ghost" size="icon"
+            className="h-7 w-7 text-muted-foreground hover:text-destructive"
+            onClick={() => setDeleteOpen(true)}
+            title="Delete event"
+          >
+            <Trash2 className="h-3.5 w-3.5" />
+            <span className="sr-only">Delete</span>
+          </Button>
+        )}
       </div>
 
-      <EditEventModal
-        key={`edit-${event.id}-${String(editOpen)}`}
-        event={event}
-        open={editOpen}
-        onOpenChange={setEditOpen}
-        teams={teams}
-        rosters={rosters}
-        lineups={lineups}
-      />
-      <DeleteEventModal
-        event={event}
-        open={deleteOpen}
-        onOpenChange={setDeleteOpen}
-        redirectTo={redirectAfterDelete}
-      />
+      {canEdit && (
+        <EditEventModal
+          key={`edit-${event.id}-${String(editOpen)}`}
+          event={event}
+          open={editOpen}
+          onOpenChange={setEditOpen}
+          teams={teams}
+          rosters={rosters}
+          lineups={lineups}
+        />
+      )}
+      {canDelete && (
+        <DeleteEventModal
+          event={event}
+          open={deleteOpen}
+          onOpenChange={setDeleteOpen}
+          redirectTo={redirectAfterDelete}
+        />
+      )}
 
       {/* Archive scope dialog — only shown for recurring events */}
       <Dialog open={archiveOpen} onOpenChange={setArchiveOpen}>

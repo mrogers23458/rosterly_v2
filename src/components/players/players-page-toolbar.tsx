@@ -6,9 +6,22 @@ import { AddPlayerModal } from "@/components/players/add-player-modal";
 import { Button } from "@/components/ui/button";
 import type { Roster, Team } from "@/lib/constants/teams";
 
-export function PlayersPageToolbar({ teams, rosters }: { teams: Team[]; rosters: Roster[] }) {
+export function PlayersPageToolbar({
+  teams,
+  rosters,
+  writableRosters,
+  canCreate = true,
+}: {
+  teams: Team[];
+  rosters: Roster[];
+  /** Rosters filtered to teams where user has player:create. */
+  writableRosters?: Roster[];
+  canCreate?: boolean;
+}) {
   const [open, setOpen] = useState(false);
   const [dialogKey, setDialogKey] = useState(0);
+
+  if (!canCreate) return null;
 
   return (
     <>
@@ -26,7 +39,7 @@ export function PlayersPageToolbar({ teams, rosters }: { teams: Team[]; rosters:
         key={dialogKey}
         directory
         teams={teams}
-        rosters={rosters}
+        rosters={writableRosters ?? rosters}
         open={open}
         onOpenChange={setOpen}
       />

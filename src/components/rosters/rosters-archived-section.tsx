@@ -5,11 +5,12 @@ import Link from "next/link";
 import { useState } from "react";
 import { RosterCardActions } from "@/components/rosters/roster-card-actions";
 import { Badge } from "@/components/ui/badge";
+import type { TeamRole } from "@/lib/constants/roles";
 import type { Roster, Team } from "@/lib/constants/teams";
 
-type Props = { rosters: Roster[]; teamId: string; teams: Team[] };
+type Props = { rosters: Roster[]; teamId: string; teams: Team[]; userRole?: TeamRole | null };
 
-export function RostersArchivedSection({ rosters, teamId, teams }: Props) {
+export function RostersArchivedSection({ rosters, teamId, teams, userRole }: Props) {
   const [expanded, setExpanded] = useState(false);
   if (rosters.length === 0) return null;
 
@@ -38,7 +39,7 @@ export function RostersArchivedSection({ rosters, teamId, teams }: Props) {
                 </h3>
                 <div className="relative z-10 flex items-center gap-1">
                   <Badge variant="muted">Archived</Badge>
-                  <RosterCardActions roster={roster} teams={teams} />
+                  <RosterCardActions roster={roster} teams={teams} userRole={userRole} />
                 </div>
               </div>
               <p className="shrink-0 text-xs text-muted-foreground">

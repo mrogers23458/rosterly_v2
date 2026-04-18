@@ -7,6 +7,9 @@ import { AddPlayerModal } from "@/components/players/add-player-modal";
 import { PlayerRowActions } from "@/components/players/player-row-actions";
 import { GcImportPlayersModal } from "@/components/import/gc-import-players-modal";
 import { Badge } from "@/components/ui/badge";
+import { getUserTeamRole } from "@/lib/permissions";
+import { can } from "@/lib/constants/roles";
+import type { TeamRole } from "@/lib/constants/roles";
 import type { Player, Roster, Team } from "@/lib/constants/teams";
 
 type Props = {
@@ -17,6 +20,8 @@ export default async function RosterDetailPage({ params }: Props) {
   const { teamId, rosterId } = await params;
   const cookieStore = await cookies();
   const supabase = createClient(cookieStore);
+
+  const { data: { user } } = await supabase.auth.getUser();
 
   const [{ data: roster }, { data: team }, { data: players }] = await Promise.all([
     supabase.from("rosters").select("*").eq("id", rosterId).single(),
@@ -30,6 +35,13 @@ export default async function RosterDetailPage({ params }: Props) {
   ]);
 
   if (!roster || !team) notFound();
+
+  const userRole: TeamRole = user
+    ? ((await getUserTeamRole(supabase, user.id, teamId)) ?? "viewer")
+    : "viewer";
+
+  const canAddPlayer  = can(userRole, "player:create");
+  const canImport     = can(userRole, "import:use");
 
   const typedRoster  = roster  as Roster;
   const typedTeam    = team    as Team;
@@ -81,8 +93,8 @@ export default async function RosterDetailPage({ params }: Props) {
           </div>
           {typedPlayers.length > 0 && (
             <div className="flex flex-wrap items-center gap-2">
-              <GcImportPlayersModal teamId={teamId} rosterId={rosterId} existingPlayers={typedPlayers} />
-              <AddPlayerModal rosterId={rosterId} teamId={teamId} />
+              {canImport && <GcImportPlayersModal teamId={teamId} rosterId={rosterId} existingPlayers={typedPlayers} />}
+              {canAddPlayer && <AddPlayerModal rosterId={rosterId} teamId={teamId} />}
             </div>
           )}
         </div>
@@ -94,13 +106,19 @@ export default async function RosterDetailPage({ params }: Props) {
               <Users className="h-5 w-5 text-muted-foreground" />
             </div>
             <h3 className="mb-1 font-semibold">No players yet</h3>
-            <p className="mb-5 text-sm text-muted-foreground">
-              Add players manually or import from a GameChanger export.
-            </p>
-            <div className="flex flex-wrap items-center justify-center gap-3">
-              <GcImportPlayersModal teamId={teamId} rosterId={rosterId} existingPlayers={typedPlayers} />
-              <AddPlayerModal rosterId={rosterId} teamId={teamId} />
-            </div>
+            {canAddPlayer ? (
+              <>
+                <p className="mb-5 text-sm text-muted-foreground">
+                  Add players manually or import from a GameChanger export.
+                </p>
+                <div className="flex flex-wrap items-center justify-center gap-3">
+                  {canImport && <GcImportPlayersModal teamId={teamId} rosterId={rosterId} existingPlayers={typedPlayers} />}
+                  <AddPlayerModal rosterId={rosterId} teamId={teamId} />
+                </div>
+              </>
+            ) : (
+              <p className="text-sm text-muted-foreground">No players have been added yet.</p>
+            )}
           </div>
         )}
 
@@ -121,7 +139,7 @@ export default async function RosterDetailPage({ params }: Props) {
               </thead>
               <tbody className="divide-y divide-border">
                 {typedPlayers.map((player) => (
-                  <PlayerRow key={player.id} player={player} teamId={teamId} rosterId={rosterId} />
+                  <PlayerRow key={player.id} player={player} teamId={teamId} rosterId={rosterId} userRole={userRole} />
                 ))}
               </tbody>
             </table>
@@ -143,7 +161,7 @@ function calculateAge(dob: string | null): number | null {
   return age >= 0 ? age : null;
 }
 
-function PlayerRow({ player, teamId, rosterId }: { player: Player; teamId: string; rosterId: string }) {
+function PlayerRow({ player, teamId, rosterId, userRole }: { player: Player; teamId: string; rosterId: string; userRole: TeamRole }) {
   const age = calculateAge(player.date_of_birth);
   const displayName = player.preferred_name
     ? `${player.first_name} "${player.preferred_name}" ${player.last_name}`
@@ -183,7 +201,7 @@ function PlayerRow({ player, teamId, rosterId }: { player: Player; teamId: strin
         </Badge>
       </td>
       <td className="px-4 py-3">
-        <PlayerRowActions player={player} teamId={teamId} rosterId={rosterId} />
+        <PlayerRowActions player={player} teamId={teamId} rosterId={rosterId} userRole={userRole} />
       </td>
     </tr>
   );

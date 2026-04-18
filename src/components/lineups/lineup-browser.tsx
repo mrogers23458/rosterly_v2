@@ -6,6 +6,7 @@ import { useMemo, useState } from "react";
 import { LineupCardActions } from "@/components/lineups/lineup-card-actions";
 import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
+import type { TeamRole } from "@/lib/constants/roles";
 import type { GameLineup, Player, Roster, Team } from "@/lib/constants/teams";
 
 type Props = {
@@ -13,6 +14,7 @@ type Props = {
   teams: Team[];
   rosters: Roster[];
   rosterPlayersMap: Record<string, Player[]>;
+  teamRoles?: Record<string, TeamRole>;
 };
 
 function formatDate(dateStr: string): string {
@@ -25,7 +27,7 @@ function formatDate(dateStr: string): string {
   });
 }
 
-export function LineupBrowser({ lineups, teams, rosters, rosterPlayersMap }: Props) {
+export function LineupBrowser({ lineups, teams, rosters, rosterPlayersMap, teamRoles }: Props) {
   const [teamFilter, setTeamFilter] = useState<string>("all");
   const [search,     setSearch]     = useState("");
 
@@ -124,6 +126,7 @@ export function LineupBrowser({ lineups, teams, rosters, rosterPlayersMap }: Pro
               team={lineup.team_id ? teamMap[lineup.team_id] : null}
               rosters={rosters}
               rosterPlayersMap={rosterPlayersMap}
+              userRole={lineup.team_id ? teamRoles?.[lineup.team_id] : null}
             />
           ))}
         </div>
@@ -137,11 +140,13 @@ function LineupCard({
   team,
   rosters,
   rosterPlayersMap,
+  userRole,
 }: {
   lineup: GameLineup;
   team: Team | null | undefined;
   rosters: Roster[];
   rosterPlayersMap: Record<string, Player[]>;
+  userRole?: TeamRole | null;
 }) {
   const href = `/lineups/${lineup.id}`;
 
@@ -181,6 +186,7 @@ function LineupCard({
             lineup={lineup}
             activeRosters={activeRostersForTeam}
             rosterPlayersMap={rosterPlayersSlice}
+            userRole={userRole}
           />
         </div>
       </div>

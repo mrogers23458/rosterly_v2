@@ -15,7 +15,7 @@ import { Badge } from "@/components/ui/badge";
 import { SortableCardGrid } from "@/components/ui/sortable-card-grid";
 import type { GameLineup, Player, Roster, Team } from "@/lib/constants/teams";
 import { getUserTeamRole } from "@/lib/permissions";
-import { ROLE_LABELS, type TeamRole } from "@/lib/constants/roles";
+import { can, ROLE_LABELS, type TeamRole } from "@/lib/constants/roles";
 import { getTeamMembers, getPendingInvitations } from "@/app/actions/members";
 
 type Props = { params: Promise<{ id: string }> };
@@ -40,12 +40,10 @@ export default async function TeamDetailPage({ params }: Props) {
     supabase.from("game_lineups").select("*").eq("team_id", id).order("created_at", { ascending: false }),
   ]);
 
-  // Fetch current user's role for this team
   const userRole: TeamRole = user
     ? ((await getUserTeamRole(supabase, user.id, id)) ?? "viewer")
     : "viewer";
 
-  // Fetch team members (for members panel)
   const { data: teamMembers } = await getTeamMembers(id);
   const { data: pendingInvites } = await getPendingInvitations(id);
 
@@ -54,17 +52,14 @@ export default async function TeamDetailPage({ params }: Props) {
   const typedAllTeams = (allTeams ?? []) as Team[];
   const typedLineups  = (lineups  ?? []) as GameLineup[];
 
-  // Split active / archived
   const activeRosters   = typedRosters.filter((r) => !r.is_archived);
   const archivedRosters = typedRosters.filter((r) =>  r.is_archived);
   const activeLineups   = typedLineups.filter((l) => !l.is_archived);
   const archivedLineups = typedLineups.filter((l) =>  l.is_archived);
 
-  // Active rosters for lineup creation
   const rosterActiveOnly = activeRosters.filter((r) => r.is_active);
   const rosterActiveIds  = rosterActiveOnly.map((r) => r.id);
 
-  // Pre-fetch players for active rosters
   const rosterPlayersMap: Record<string, Player[]> = {};
   if (rosterActiveIds.length > 0) {
     const { data: allActivePlayers } = await supabase
@@ -80,13 +75,16 @@ export default async function TeamDetailPage({ params }: Props) {
     }
   }
 
-  // Roster name lookup for lineup cards
   const rosterNameMap: Record<string, string> = {};
   for (const r of typedRosters) rosterNameMap[r.id] = r.name;
 
+  // Permission flags for this team
+  const canCreateRoster  = can(userRole, "roster:create");
+  const canImport        = can(userRole, "import:use");
+  const canCreateLineup  = can(userRole, "lineup:create");
+
   return (
     <div className="px-4 py-8 sm:px-6 md:px-8">
-      {/* Back link */}
       <Link href="/teams"
         className="mb-6 inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground transition-colors">
         <ArrowLeft className="h-3.5 w-3.5" />
@@ -112,7 +110,7 @@ export default async function TeamDetailPage({ params }: Props) {
           </p>
         </div>
         <div className="shrink-0">
-          <TeamCardActions team={typedTeam} />
+          <TeamCardActions team={typedTeam} userRole={userRole} />
         </div>
       </div>
 
@@ -122,20 +120,24 @@ export default async function TeamDetailPage({ params }: Props) {
           <div>
             <h2 className="text-lg font-semibold">Rosters</h2>
             <p className="mt-1 text-sm text-muted-foreground">
-              Batting rosters for this team. Create new or import from GameChanger.
+              Batting rosters for this team.{canCreateRoster && " Create new or import from GameChanger."}
             </p>
           </div>
           <RostersPageToolbar
             key={id}
             teams={typedAllTeams}
             defaultTeamId={id}
-            importTeamId={id}
+            importTeamId={canImport ? id : undefined}
+            canCreate={canCreateRoster}
+            canImport={canImport}
           />
         </div>
 
         {typedRosters.length === 0 && (
           <p className="mb-4 text-sm text-muted-foreground">
-            No rosters yet. Use the buttons above to create one or import from GameChanger.
+            {canCreateRoster
+              ? "No rosters yet. Use the buttons above to create one or import from GameChanger."
+              : "No rosters yet."}
           </p>
         )}
 
@@ -143,11 +145,11 @@ export default async function TeamDetailPage({ params }: Props) {
           storageKey={`rosters-${id}`}
           items={activeRosters.map((roster) => ({
             id:   roster.id,
-            node: <RosterCard roster={roster} teamId={id} allTeams={typedAllTeams} />,
+            node: <RosterCard roster={roster} teamId={id} allTeams={typedAllTeams} userRole={userRole} />,
           }))}
         />
 
-        <RostersArchivedSection rosters={archivedRosters} teamId={id} teams={typedAllTeams} />
+        <RostersArchivedSection rosters={archivedRosters} teamId={id} teams={typedAllTeams} userRole={userRole} />
       </div>
 
       {/* ── Game Lineups ──────────────────────────────────── */}
@@ -165,12 +167,16 @@ export default async function TeamDetailPage({ params }: Props) {
             rosters={typedRosters.filter((r) => !r.is_archived)}
             rosterPlayersMap={rosterPlayersMap}
             initialTeamId={id}
+            canCreate={canCreateLineup}
+            canImport={canImport}
           />
         </div>
 
         {typedLineups.length === 0 && (
           <p className="mb-4 text-sm text-muted-foreground">
-            No lineups yet. Use the button above to create your first game lineup.
+            {canCreateLineup
+              ? "No lineups yet. Use the button above to create your first game lineup."
+              : "No lineups yet."}
           </p>
         )}
 
@@ -184,6 +190,7 @@ export default async function TeamDetailPage({ params }: Props) {
                 rosterName={lineup.roster_id ? rosterNameMap[lineup.roster_id] : undefined}
                 activeRosters={rosterActiveOnly}
                 rosterPlayersMap={rosterPlayersMap}
+                userRole={userRole}
               />
             ),
           }))}
@@ -194,6 +201,7 @@ export default async function TeamDetailPage({ params }: Props) {
           rosterNameMap={rosterNameMap}
           activeRosters={rosterActiveOnly}
           rosterPlayersMap={rosterPlayersMap}
+          userRole={userRole}
         />
       </div>
 
@@ -212,22 +220,27 @@ export default async function TeamDetailPage({ params }: Props) {
 
 // ─── Roster card ──────────────────────────────────────────────────────────────
 
-function RosterCard({ roster, teamId, allTeams }: { roster: Roster; teamId: string; allTeams: Team[] }) {
+function RosterCard({
+  roster, teamId, allTeams, userRole,
+}: {
+  roster: Roster;
+  teamId: string;
+  allTeams: Team[];
+  userRole: TeamRole;
+}) {
   return (
     <div className="group relative flex h-full min-h-0 flex-col gap-2 rounded-lg border border-border bg-card p-4 transition-all duration-150 hover:-translate-y-0.5 hover:shadow-md hover:border-primary/30">
-      {/* Full-card link — sits beneath the action buttons */}
       <Link href={`/rosters/${teamId}/${roster.id}`} className="absolute inset-0 rounded-lg" />
 
       <div className="flex shrink-0 items-start justify-between gap-2">
         <h3 className="text-sm font-semibold leading-snug group-hover:text-primary transition-colors">
           {roster.name}
         </h3>
-        {/* z-10 lifts actions above the absolute link */}
         <div className="relative z-10 flex items-center gap-1">
           <Badge variant={roster.is_active ? "success" : "muted"}>
             {roster.is_active ? "Active" : "Inactive"}
           </Badge>
-          <RosterCardActions roster={roster} teams={allTeams} />
+          <RosterCardActions roster={roster} teams={allTeams} userRole={userRole} />
         </div>
       </div>
       <p className="shrink-0 text-xs text-muted-foreground">
@@ -250,12 +263,13 @@ function formatDate(dateStr: string) {
 }
 
 function LineupCard({
-  lineup, rosterName, activeRosters, rosterPlayersMap,
+  lineup, rosterName, activeRosters, rosterPlayersMap, userRole,
 }: {
   lineup: GameLineup;
   rosterName?: string;
   activeRosters: Roster[];
   rosterPlayersMap: Record<string, Player[]>;
+  userRole: TeamRole;
 }) {
   return (
     <div className="group relative flex h-full min-h-0 flex-col gap-2 rounded-lg border border-border bg-card p-4 transition-all duration-150 hover:-translate-y-0.5 hover:shadow-md hover:border-primary/30">
@@ -269,6 +283,7 @@ function LineupCard({
             lineup={lineup}
             activeRosters={activeRosters}
             rosterPlayersMap={rosterPlayersMap}
+            userRole={userRole}
           />
         </div>
       </div>

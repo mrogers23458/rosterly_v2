@@ -1,9 +1,10 @@
 import Link from "next/link";
 import { TeamCardActions } from "@/components/teams/team-card-actions";
 import { Badge } from "@/components/ui/badge";
+import type { TeamRole } from "@/lib/constants/roles";
 import type { Team } from "@/lib/constants/teams";
 
-export function TeamCard({ team }: { team: Team }) {
+export function TeamCard({ team, userRole }: { team: Team; userRole?: TeamRole | null }) {
   return (
     <div className="group relative flex h-full min-h-0 flex-col gap-2 rounded-lg border border-border bg-card p-4 transition-all duration-150 hover:-translate-y-0.5 hover:shadow-md hover:border-primary/30">
       <Link
@@ -20,7 +21,7 @@ export function TeamCard({ team }: { team: Team }) {
           <Badge variant={team.is_active ? "success" : "muted"}>
             {team.is_active ? "Active" : "Inactive"}
           </Badge>
-          <TeamCardActions team={team} />
+          <TeamCardActions team={team} userRole={userRole} />
         </div>
       </div>
 

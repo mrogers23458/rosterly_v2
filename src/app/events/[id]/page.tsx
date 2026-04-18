@@ -8,6 +8,8 @@ import { createClient } from "@/utils/supabase/server";
 import { EventDetailActions } from "@/components/events/event-detail-actions";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
+import { getUserTeamRole } from "@/lib/permissions";
+import type { TeamRole } from "@/lib/constants/roles";
 import {
   EVENT_TYPE_META,
   type TeamEvent,
@@ -85,6 +87,11 @@ export default async function EventDetailPage({ params }: Props) {
   const allTeamsList   = (allTeams   ?? []) as Team[];
   const allRostersList = (allRosters ?? []) as Roster[];
   const allLineupsList = (allLineups ?? []) as GameLineup[];
+
+  const { data: { user } } = await supabase.auth.getUser();
+  const userRole: TeamRole = (user && event.team_id)
+    ? ((await getUserTeamRole(supabase, user.id, event.team_id)) ?? "viewer")
+    : "viewer";
 
   const meta   = EVENT_TYPE_META[event.type];
   const isPast = new Date(event.event_date + "T00:00:00") < new Date(new Date().toDateString());
@@ -188,6 +195,7 @@ export default async function EventDetailPage({ params }: Props) {
             teams={allTeamsList}
             rosters={allRostersList}
             lineups={allLineupsList}
+            userRole={userRole}
           />
         </div>
       </div>

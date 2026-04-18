@@ -2,11 +2,15 @@ import { cookies } from "next/headers";
 import { createClient } from "@/utils/supabase/server";
 import { PlayerBrowser } from "@/components/players/player-browser";
 import { PlayersPageToolbar } from "@/components/players/players-page-toolbar";
+import { getUserTeamRoles } from "@/lib/permissions";
+import { can } from "@/lib/constants/roles";
 import type { Player, Roster, Team } from "@/lib/constants/teams";
 
 export default async function PlayersPage() {
   const cookieStore = await cookies();
   const supabase = createClient(cookieStore);
+
+  const { data: { user } } = await supabase.auth.getUser();
 
   const [{ data: teams }, { data: rosters }] = await Promise.all([
     supabase
@@ -22,7 +26,7 @@ export default async function PlayersPage() {
   ]);
 
   const rosterList = (rosters ?? []) as Roster[];
-  const rosterIds = rosterList.map((r) => r.id);
+  const rosterIds  = rosterList.map((r) => r.id);
 
   let players: Player[] = [];
   if (rosterIds.length > 0) {
@@ -36,6 +40,13 @@ export default async function PlayersPage() {
   }
 
   const typedTeams = (teams ?? []) as Team[];
+  const teamRoles  = user ? await getUserTeamRoles(supabase, user.id) : {};
+
+  const canCreatePlayer = Object.values(teamRoles).some((r) => can(r, "player:create"));
+  // Rosters on teams where the user can create/edit players
+  const writableRosters = rosterList.filter(
+    (r) => r.team_id && can(teamRoles[r.team_id], "player:create"),
+  );
 
   return (
     <div className="px-4 py-8 sm:px-6 md:px-8">
@@ -46,10 +57,20 @@ export default async function PlayersPage() {
             All players on your rosters. Filter by team and roster, or search.
           </p>
         </div>
-        <PlayersPageToolbar teams={typedTeams} rosters={rosterList} />
+        <PlayersPageToolbar
+          teams={typedTeams}
+          rosters={rosterList}
+          writableRosters={writableRosters}
+          canCreate={canCreatePlayer}
+        />
       </div>
 
-      <PlayerBrowser players={players} rosters={rosterList} teams={typedTeams} />
+      <PlayerBrowser
+        players={players}
+        rosters={rosterList}
+        teams={typedTeams}
+        teamRoles={teamRoles}
+      />
     </div>
   );
 }

@@ -7,14 +7,17 @@ import { Button } from "@/components/ui/button";
 import type { GameLineup, Roster, Team } from "@/lib/constants/teams";
 
 type Props = {
-  teams:   Team[];
-  rosters: Roster[];
-  lineups: GameLineup[];
+  teams:      Team[];
+  rosters:    Roster[];
+  lineups:    GameLineup[];
+  canCreate?: boolean;
 };
 
-export function EventsPageToolbar({ teams, rosters, lineups }: Props) {
+export function EventsPageToolbar({ teams, rosters, lineups, canCreate = true }: Props) {
   const [open, setOpen] = useState(false);
   const [key,  setKey]  = useState(0);
+
+  if (!canCreate) return null;
 
   function handleOpen() {
     setKey((k) => k + 1);
