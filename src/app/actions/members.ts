@@ -143,7 +143,7 @@ export async function addTeamMember(
   // Send the invite email via Supabase auth admin.
   try {
     const admin = createAdminClient();
-    const redirectTo = `${siteUrl}/auth/callback?next=/accept-invite/${invite.token}`;
+    const redirectTo = `${siteUrl}/auth/confirm?next=/accept-invite`;
 
     const { error: inviteError } = await admin.auth.admin.inviteUserByEmail(
       normalizedEmail,
@@ -391,4 +391,51 @@ export async function cancelPendingInvitation(
   if (error) return { error: "Could not cancel invitation." };
   revalidatePath(`/teams/${teamId}`);
   return {};
+}
+
+// ─── Get pending invites for the currently signed-in user (by email) ──────────
+// Used by the /accept-invite page after the user lands there via the email link.
+
+export type PendingInviteForUser = {
+  id:      string;
+  token:   string;
+  role:    TeamRole;
+  teamId:  string;
+  teamName: string;
+};
+
+export async function getPendingInvitesForCurrentUser(): Promise<{
+  data?: PendingInviteForUser[];
+  error?: string;
+}> {
+  const { supabase, user } = await getAuthenticatedClient();
+  if (!user) return { error: "You must be signed in." };
+
+  const email = user.email?.toLowerCase();
+  if (!email) return { error: "Your account has no email address." };
+
+  const admin = createAdminClient();
+
+  const { data, error } = await admin
+    .from("pending_team_invitations")
+    .select("id, token, role, team_id, teams(name)")
+    .eq("email", email)
+    .is("accepted_at", null)
+    .gt("expires_at", new Date().toISOString())
+    .order("created_at", { ascending: true });
+
+  if (error) {
+    console.error("getPendingInvitesForCurrentUser error:", error);
+    return { error: "Could not load your invitations." };
+  }
+
+  const result: PendingInviteForUser[] = (data ?? []).map((row: Record<string, unknown>) => ({
+    id:       row.id as string,
+    token:    row.token as string,
+    role:     row.role as TeamRole,
+    teamId:   row.team_id as string,
+    teamName: (row.teams as { name: string } | null)?.name ?? "Unknown Team",
+  }));
+
+  return { data: result };
 }
