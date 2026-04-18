@@ -157,6 +157,19 @@ export async function addTeamMember(
         .from("pending_team_invitations")
         .delete()
         .eq("token", invite.token);
+
+      // Surface rate-limit errors clearly so the user knows what's happening.
+      if (
+        inviteError.status === 429 ||
+        (inviteError as { code?: string }).code === "over_email_send_rate_limit"
+      ) {
+        return {
+          error:
+            "Supabase's built-in email provider hit its hourly limit (2 emails/hour on the free tier). " +
+            "Wait an hour and try again, or set up a custom SMTP provider in Supabase → Project Settings → Authentication → SMTP Settings.",
+        };
+      }
+
       return { error: "Could not send invitation email. Please try again." };
     }
   } catch (err) {
