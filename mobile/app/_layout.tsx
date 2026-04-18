@@ -25,13 +25,20 @@ async function handleAuthUrl(url: string) {
   const supabase = getSupabase();
   if (!supabase) return;
 
-  if (url.includes("code=")) {
-    const { error } = await supabase.auth.exchangeCodeForSession(url);
+  // Manually extract the code so we never pass an exp:// URL into
+  // exchangeCodeForSession (some URL parsers reject custom schemes).
+  const queryPart = url.split("?")[1] ?? "";
+  const code = new URLSearchParams(queryPart).get("code");
+
+  if (code) {
+    console.log("[handleAuthUrl] exchanging code…");
+    const { error } = await supabase.auth.exchangeCodeForSession(code);
     if (error) console.warn("[auth deep-link] exchangeCodeForSession:", error.message);
     else console.log("[handleAuthUrl] session set successfully");
     return;
   }
 
+  // Implicit flow → #access_token=…&refresh_token=…
   const hash = url.split("#")[1] ?? "";
   const params = new URLSearchParams(hash);
   const access_token  = params.get("access_token");
