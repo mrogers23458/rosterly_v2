@@ -30,6 +30,10 @@ export function getSupabase(): SupabaseClient | null {
         autoRefreshToken: true,
         persistSession: true,
         detectSessionInUrl: false,
+        // Force PKCE so the callback uses ?code= (query string) instead of
+        // #access_token= (hash fragment). Hash fragments are stripped by iOS
+        // when opening app via custom URL scheme deep links.
+        flowType: "pkce",
       },
     });
   }
