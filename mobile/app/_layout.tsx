@@ -25,28 +25,41 @@ async function handleAuthUrl(url: string) {
   const supabase = getSupabase();
   if (!supabase) return;
 
-  // Manually extract the code so we never pass an exp:// URL into
-  // exchangeCodeForSession (some URL parsers reject custom schemes).
+  // Parse query string (all tokens end up here — relay converts hash to query)
   const queryPart = url.split("?")[1] ?? "";
-  const code = new URLSearchParams(queryPart).get("code");
+  const qp = new URLSearchParams(queryPart);
+
+  const code          = qp.get("code");
+  const access_token  = qp.get("access_token");
+  const refresh_token = qp.get("refresh_token");
 
   if (code) {
-    console.log("[handleAuthUrl] exchanging code…");
+    // PKCE flow
+    console.log("[handleAuthUrl] exchanging PKCE code…");
     const { error } = await supabase.auth.exchangeCodeForSession(code);
-    if (error) console.warn("[auth deep-link] exchangeCodeForSession:", error.message);
-    else console.log("[handleAuthUrl] session set successfully");
+    if (error) console.warn("[auth] exchangeCodeForSession:", error.message);
+    else console.log("[handleAuthUrl] ✓ session set via PKCE");
     return;
   }
 
-  // Implicit flow → #access_token=…&refresh_token=…
-  const hash = url.split("#")[1] ?? "";
-  const params = new URLSearchParams(hash);
-  const access_token  = params.get("access_token");
-  const refresh_token = params.get("refresh_token");
   if (access_token && refresh_token) {
+    // Implicit flow (tokens forwarded as query params by the relay page)
+    console.log("[handleAuthUrl] setting session via tokens…");
     const { error } = await supabase.auth.setSession({ access_token, refresh_token });
-    if (error) console.warn("[auth deep-link] setSession:", error.message);
-    else console.log("[handleAuthUrl] session set via tokens");
+    if (error) console.warn("[auth] setSession:", error.message);
+    else console.log("[handleAuthUrl] ✓ session set via tokens");
+    return;
+  }
+
+  // Also check hash fragment as a fallback (email confirm links, etc.)
+  const hashPart = url.split("#")[1] ?? "";
+  const hp = new URLSearchParams(hashPart);
+  const hat = hp.get("access_token");
+  const hrt = hp.get("refresh_token");
+  if (hat && hrt) {
+    const { error } = await supabase.auth.setSession({ access_token: hat, refresh_token: hrt });
+    if (error) console.warn("[auth] setSession (hash):", error.message);
+    else console.log("[handleAuthUrl] ✓ session set via hash tokens");
   }
 }
 
