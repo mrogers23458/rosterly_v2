@@ -101,44 +101,49 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     },
 
     /**
-     * Official Supabase React Native OAuth flow.
+     * Google OAuth — relay approach.
      *
-     * In a production standalone build:
-     *   - openAuthSessionAsync intercepts rosterly:// and returns type:"success"
-     *   - We exchange the code/tokens here.
+     * WHY NOT openAuthSessionAsync + exp:// directly:
+     *   Supabase rejects exp://HOST:PORT redirect URLs because the IP+port
+     *   format doesn't pass its URL validator, even when listed in allowed URLs.
+     *   WebCrypto is also unavailable in Expo Go, breaking PKCE SHA-256.
      *
-     * In Expo Go:
-     *   - ASWebAuthenticationSession fires error 1 because iOS routes exp://
-     *     directly to Expo Go (the scheme is already "owned" by Expo Go).
-     *   - openAuthSessionAsync returns type:"cancel" — this is expected, not
-     *     a real error.
-     *   - When iOS opens Expo Go via the exp:// deep link, useLinkingURL()
-     *     above fires and createSessionFromUrl() handles the auth.
+     * WHAT WE DO INSTEAD:
+     *   1. redirectTo = HTTPS relay page (always accepted by Supabase).
+     *      The relay URL carries ?target=exp://10.0.0.38:8081 so the page
+     *      knows where to forward the auth code.
+     *   2. Open with Linking.openURL → Safari (not in-app browser).
+     *   3. After Google auth, Supabase hits the relay page with ?code=…
+     *   4. Relay page does window.location.replace("exp://…?code=…")
+     *   5. iOS sees exp:// → opens Expo Go → fires useLinkingURL() below.
+     *   6. createSessionFromUrl() exchanges the code for a session.
+     *
+     * In a production standalone build, target = rosterly:// and the same
+     * relay → deep-link path works with the app's registered scheme.
      */
     signInWithGoogle: async () => {
       const c = getSupabase();
       if (!c) return { error: "Supabase is not configured." };
       try {
-        const redirectTo = makeRedirectUri();
-        console.log("[Google OAuth] redirectTo =", redirectTo);
+        // exp://10.0.0.38:8081 in Expo Go, rosterly:// in standalone
+        const target = makeRedirectUri();
+        const relayUrl =
+          `https://rosterlylineups.com/auth/mobile-callback` +
+          `?target=${encodeURIComponent(target)}`;
+        console.log("[Google OAuth] target =", target);
+        console.log("[Google OAuth] relayUrl =", relayUrl);
 
         const { data, error } = await c.auth.signInWithOAuth({
           provider: "google",
-          options: { redirectTo, skipBrowserRedirect: true },
+          options: { redirectTo: relayUrl, skipBrowserRedirect: true },
         });
         if (error) return { error: error.message };
         if (!data.url) return { error: "No OAuth URL returned." };
 
-        const result = await WebBrowser.openAuthSessionAsync(data.url, redirectTo);
-        console.log("[Google OAuth] result.type =", result.type);
-
-        if (result.type === "success" && result.url) {
-          // Production standalone: ASWebAuthenticationSession intercepted the
-          // rosterly:// callback properly — handle it directly.
-          const err = await createSessionFromUrl(result.url);
-          if (err) return { error: err };
-        }
-        // type:"cancel" in Expo Go is expected — useLinkingURL() handles it.
+        // Open in Safari. After Google auth:
+        //   Supabase → relay page (HTTPS) → window.location.replace(exp://…?code=…)
+        //   iOS opens Expo Go → useLinkingURL() fires → createSessionFromUrl()
+        await Linking.openURL(data.url);
         return {};
       } catch (err) {
         return { error: err instanceof Error ? err.message : "Google sign-in failed." };

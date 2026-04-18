@@ -33,6 +33,8 @@ export function getSupabase(): SupabaseClient | null {
         // Force PKCE so the callback uses ?code= (query string) instead of
         // #access_token= (hash fragment). Hash fragments are stripped by iOS
         // when opening app via custom URL scheme deep links.
+        // NOTE: falls back to "plain" challenge if WebCrypto unavailable (Expo Go),
+        // which Supabase still accepts.
         flowType: "pkce",
       },
     });
