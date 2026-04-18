@@ -3,6 +3,7 @@ import { Inter } from "next/font/google";
 import { Analytics } from "@vercel/analytics/next";
 import { SpeedInsights } from "@vercel/speed-insights/next";
 import { AppProviders } from "@/components/providers/app-providers";
+import { InviteHashHandler } from "@/components/invite-hash-handler";
 import "./globals.css";
 
 const inter = Inter({
@@ -24,7 +25,10 @@ export default function RootLayout({
   return (
     <html lang="en" className={inter.variable}>
       <body>
-        <AppProviders>{children}</AppProviders>
+        <AppProviders>
+          <InviteHashHandler />
+          {children}
+        </AppProviders>
         <Analytics />
         <SpeedInsights />
       </body>
