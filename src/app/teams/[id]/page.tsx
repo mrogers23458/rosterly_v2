@@ -1,4 +1,4 @@
-import { ArrowLeft, LayoutList } from "lucide-react";
+import { ArrowLeft, LayoutList, MessageSquare } from "lucide-react";
 import Link from "next/link";
 import { cookies } from "next/headers";
 import { notFound } from "next/navigation";
@@ -109,7 +109,14 @@ export default async function TeamDetailPage({ params }: Props) {
             {typedTeam.organization && <> &mdash; {typedTeam.organization}</>}
           </p>
         </div>
-        <div className="shrink-0">
+        <div className="shrink-0 flex items-center gap-2">
+          <Link
+            href={`/teams/${id}/chat`}
+            className="inline-flex items-center gap-1.5 rounded-md border border-border bg-background px-3 py-1.5 text-sm font-medium text-foreground shadow-xs transition-colors hover:bg-muted"
+          >
+            <MessageSquare className="h-4 w-4" />
+            Team Chat
+          </Link>
           <TeamCardActions team={typedTeam} userRole={userRole} />
         </div>
       </div>
