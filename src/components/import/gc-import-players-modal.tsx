@@ -489,11 +489,16 @@ type Props = {
   teamId: string;
   rosterId: string;
   existingPlayers: Player[];
+  /** Optional controlled mode — if provided, the component renders no trigger button. */
+  open?: boolean;
+  onOpenChange?: (v: boolean) => void;
 };
 
-export function GcImportPlayersModal({ teamId, rosterId, existingPlayers }: Props) {
+export function GcImportPlayersModal({ teamId, rosterId, existingPlayers, open: controlledOpen, onOpenChange }: Props) {
   const router = useRouter();
-  const [open, setOpen] = useState(false);
+  const isControlled = onOpenChange !== undefined;
+  const [internalOpen, setInternalOpen] = useState(false);
+  const open = isControlled ? (controlledOpen ?? false) : internalOpen;
   const [step, setStep] = useState<Step>("upload");
 
   const [players,    setPlayers]    = useState<ImportPlayerInput[]>([]);
@@ -512,7 +517,8 @@ export function GcImportPlayersModal({ teamId, rosterId, existingPlayers }: Prop
       setImportedCount(0); setMergedCount(0);
       setSubmitError(null);
     }
-    setOpen(v);
+    if (isControlled) onOpenChange(v);
+    else setInternalOpen(v);
   }
 
   function handleParsed(parsed: ImportPlayerInput[]) {
@@ -589,10 +595,12 @@ export function GcImportPlayersModal({ teamId, rosterId, existingPlayers }: Prop
 
   return (
     <>
-      <Button variant="outline" onClick={() => setOpen(true)}>
-        <FileUp className="h-4 w-4" />
-        Import from GameChanger
-      </Button>
+      {!isControlled && (
+        <Button variant="outline" onClick={() => setInternalOpen(true)}>
+          <FileUp className="h-4 w-4" />
+          Import from GameChanger
+        </Button>
+      )}
 
       <Dialog open={open} onOpenChange={handleOpen}>
         <DialogContent className="max-h-[90vh] overflow-y-auto">

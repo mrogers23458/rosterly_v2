@@ -3,9 +3,8 @@ import Link from "next/link";
 import { cookies } from "next/headers";
 import { notFound } from "next/navigation";
 import { createClient } from "@/utils/supabase/server";
-import { AddPlayerModal } from "@/components/players/add-player-modal";
+import { AddPlayerWizardToolbar } from "@/components/players/add-player-wizard-toolbar";
 import { PlayerRowActions } from "@/components/players/player-row-actions";
-import { GcImportPlayersModal } from "@/components/import/gc-import-players-modal";
 import { Badge } from "@/components/ui/badge";
 import { getUserTeamRole } from "@/lib/permissions";
 import { can } from "@/lib/constants/roles";
@@ -42,7 +41,6 @@ export default async function RosterDetailPage({ params }: Props) {
 
   const canAddPlayer  = can(userRole, "player:create");
   const canImport     = can(userRole, "import:use");
-
   const typedRoster  = roster  as Roster;
   const typedTeam    = team    as Team;
   const typedPlayers = (players ?? []) as Player[];
@@ -93,8 +91,13 @@ export default async function RosterDetailPage({ params }: Props) {
           </div>
           {typedPlayers.length > 0 && (
             <div className="flex flex-wrap items-center gap-2">
-              {canImport && <GcImportPlayersModal teamId={teamId} rosterId={rosterId} existingPlayers={typedPlayers} />}
-              {canAddPlayer && <AddPlayerModal rosterId={rosterId} teamId={teamId} />}
+              {(canAddPlayer || canImport) && (
+                <AddPlayerWizardToolbar
+                  teamId={teamId}
+                  rosterId={rosterId}
+                  existingPlayers={typedPlayers}
+                />
+              )}
             </div>
           )}
         </div>
@@ -109,11 +112,14 @@ export default async function RosterDetailPage({ params }: Props) {
             {canAddPlayer ? (
               <>
                 <p className="mb-5 text-sm text-muted-foreground">
-                  Add players manually or import from a GameChanger export.
+                  Add players manually or import from AI, Google Sheets, or GameChanger.
                 </p>
                 <div className="flex flex-wrap items-center justify-center gap-3">
-                  {canImport && <GcImportPlayersModal teamId={teamId} rosterId={rosterId} existingPlayers={typedPlayers} />}
-                  <AddPlayerModal rosterId={rosterId} teamId={teamId} />
+                  <AddPlayerWizardToolbar
+                    teamId={teamId}
+                    rosterId={rosterId}
+                    existingPlayers={typedPlayers}
+                  />
                 </div>
               </>
             ) : (

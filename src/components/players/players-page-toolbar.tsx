@@ -2,7 +2,7 @@
 
 import { UserPlus } from "lucide-react";
 import { useState } from "react";
-import { AddPlayerModal } from "@/components/players/add-player-modal";
+import { AddPlayerWizardModal } from "@/components/players/add-player-wizard-modal";
 import { Button } from "@/components/ui/button";
 import type { Roster, Team } from "@/lib/constants/teams";
 
@@ -35,7 +35,7 @@ export function PlayersPageToolbar({
         <UserPlus className="h-4 w-4" />
         Add player
       </Button>
-      <AddPlayerModal
+      <AddPlayerWizardModal
         key={dialogKey}
         directory
         teams={teams}
