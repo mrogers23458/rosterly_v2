@@ -17,7 +17,7 @@ import {
   useSortable,
 } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
-import { GripVertical } from "lucide-react";
+import { GripHorizontal } from "lucide-react";
 import { useEffect, useState } from "react";
 
 // ─── Dialog-aware sensor ──────────────────────────────────────────────────────
@@ -76,12 +76,12 @@ function SortableSlot({ id, children }: { id: string; children: React.ReactNode 
       {...attributes}
       {...listeners}
     >
-      {/* Subtle drag-hint icon — appears on hover, sits in the card corner */}
+      {/* Subtle drag-hint icon — appears on hover, centered at the top edge */}
       <div
         aria-hidden
-        className="pointer-events-none absolute left-2 top-2 z-[15] opacity-0 transition-opacity duration-150 group-hover/drag:opacity-100 select-none"
+        className="pointer-events-none absolute left-1/2 top-1.5 z-[15] -translate-x-1/2 opacity-0 transition-opacity duration-150 group-hover/drag:opacity-100 select-none"
       >
-        <GripVertical className="h-3.5 w-3.5 text-muted-foreground/35" />
+        <GripHorizontal className="h-3.5 w-3.5 text-muted-foreground/40" />
       </div>
 
       <div className="flex min-h-0 flex-1 flex-col">{children}</div>

@@ -141,7 +141,7 @@ function RosterCard({
   const canLink = Boolean(roster.team_id);
 
   return (
-    <div className="group relative flex h-full min-h-0 flex-col gap-2 rounded-lg border border-border bg-card p-4 transition-all duration-150 hover:-translate-y-0.5 hover:border-primary/30 hover:shadow-md">
+    <div className="group relative flex h-full min-h-0 flex-col gap-2 rounded-lg border border-border bg-card p-5 transition-all duration-150 hover:-translate-y-0.5 hover:border-primary/30 hover:shadow-md">
       {canLink && (
         <Link
           href={`/rosters/${roster.team_id}/${roster.id}`}

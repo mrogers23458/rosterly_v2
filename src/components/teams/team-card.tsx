@@ -6,7 +6,7 @@ import type { Team } from "@/lib/constants/teams";
 
 export function TeamCard({ team, userRole }: { team: Team; userRole?: TeamRole | null }) {
   return (
-    <div className="group relative flex h-full min-h-0 flex-col gap-2 rounded-lg border border-border bg-card p-4 transition-all duration-150 hover:-translate-y-0.5 hover:shadow-md hover:border-primary/30">
+    <div className="group relative flex h-full min-h-0 flex-col gap-2 rounded-lg border border-border bg-card p-5 transition-all duration-150 hover:-translate-y-0.5 hover:shadow-md hover:border-primary/30">
       <Link
         href={`/teams/${team.id}`}
         className="absolute inset-0 rounded-lg focus:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
