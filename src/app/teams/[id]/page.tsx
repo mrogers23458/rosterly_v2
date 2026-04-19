@@ -93,21 +93,36 @@ export default async function TeamDetailPage({ params }: Props) {
 
       {/* Team header */}
       <div className="mb-8 flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
-        <div>
-          <div className="flex flex-wrap items-center gap-2">
-            <h1 className="text-2xl font-bold tracking-tight sm:text-3xl">{typedTeam.name}</h1>
-            <Badge variant={typedTeam.is_archived ? "muted" : typedTeam.is_active ? "success" : "muted"}>
-              {typedTeam.is_archived ? "Archived" : typedTeam.is_active ? "Active" : "Inactive"}
-            </Badge>
-            <Badge variant="outline" className="text-xs">
-              Your role: {ROLE_LABELS[userRole]}
-            </Badge>
+        <div className="flex items-start gap-4">
+          {/* Team logo */}
+          {typedTeam.logo_url ? (
+            /* eslint-disable-next-line @next/next/no-img-element */
+            <img
+              src={typedTeam.logo_url}
+              alt={`${typedTeam.name} logo`}
+              className="h-16 w-16 flex-shrink-0 rounded-xl border border-border object-cover shadow-sm"
+            />
+          ) : (
+            <div className="flex h-16 w-16 flex-shrink-0 items-center justify-center rounded-xl border border-dashed border-border bg-muted text-2xl font-bold text-muted-foreground">
+              {typedTeam.name.charAt(0).toUpperCase()}
+            </div>
+          )}
+          <div>
+            <div className="flex flex-wrap items-center gap-2">
+              <h1 className="text-2xl font-bold tracking-tight sm:text-3xl">{typedTeam.name}</h1>
+              <Badge variant={typedTeam.is_archived ? "muted" : typedTeam.is_active ? "success" : "muted"}>
+                {typedTeam.is_archived ? "Archived" : typedTeam.is_active ? "Active" : "Inactive"}
+              </Badge>
+              <Badge variant="outline" className="text-xs">
+                Your role: {ROLE_LABELS[userRole]}
+              </Badge>
+            </div>
+            <p className="mt-1.5 text-sm text-muted-foreground">
+              {[typedTeam.year, typedTeam.season, typedTeam.division, typedTeam.age_group, typedTeam.team_type]
+                .filter(Boolean).join(" · ")}
+              {typedTeam.organization && <> &mdash; {typedTeam.organization}</>}
+            </p>
           </div>
-          <p className="mt-1.5 text-sm text-muted-foreground">
-            {[typedTeam.year, typedTeam.season, typedTeam.division, typedTeam.age_group, typedTeam.team_type]
-              .filter(Boolean).join(" · ")}
-            {typedTeam.organization && <> &mdash; {typedTeam.organization}</>}
-          </p>
         </div>
         <div className="shrink-0 flex items-center gap-2">
           <Link

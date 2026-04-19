@@ -36,6 +36,7 @@ function parseTeamFormData(formData: FormData) {
     teamType: (formData.get("team_type") as string | null)?.trim(),
     organization: (formData.get("organization") as string | null)?.trim() || null,
     isActive: formData.get("is_active") === "true",
+    logoUrl: (formData.get("logo_url") as string | null)?.trim() || null,
   };
 }
 
@@ -51,7 +52,7 @@ export async function createTeam(
   const parsed = parseTeamFormData(formData);
   if ("error" in parsed) return { error: parsed.error };
 
-  const { name, year, season, division, ageGroup, teamType, organization, isActive } = parsed;
+  const { name, year, season, division, ageGroup, teamType, organization, isActive, logoUrl } = parsed;
   if (!name || !season || !division || !ageGroup || !teamType) {
     return { error: "Name, season, division, age group, and team type are required." };
   }
@@ -69,6 +70,7 @@ export async function createTeam(
       organization,
       is_active: isActive,
       is_archived: false,
+      logo_url: logoUrl,
     })
     .select("id")
     .single();
@@ -103,7 +105,7 @@ export async function updateTeam(
   const parsed = parseTeamFormData(formData);
   if ("error" in parsed) return { error: parsed.error };
 
-  const { name, year, season, division, ageGroup, teamType, organization, isActive } = parsed;
+  const { name, year, season, division, ageGroup, teamType, organization, isActive, logoUrl } = parsed;
   if (!name || !season || !division || !ageGroup || !teamType) {
     return { error: "Name, season, division, age group, and team type are required." };
   }
@@ -116,7 +118,7 @@ export async function updateTeam(
 
   const { error } = await supabase
     .from("teams")
-    .update({ name, year, season, division, age_group: ageGroup, team_type: teamType, organization, is_active: isActive })
+    .update({ name, year, season, division, age_group: ageGroup, team_type: teamType, organization, is_active: isActive, logo_url: logoUrl })
     .eq("id", teamId);
 
   if (error) {

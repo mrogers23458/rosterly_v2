@@ -4,6 +4,7 @@ import { useRouter } from "next/navigation";
 import { useActionState, useEffect, useState } from "react";
 import { updatePlayer, type PlayerFormState } from "@/app/actions/players";
 import { Alert, AlertDescription } from "@/components/ui/alert";
+import { AvatarUpload } from "@/components/ui/avatar-upload";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import {
@@ -95,6 +96,7 @@ export function EditPlayerModal({ player, teamId, rosterId, open, onOpenChange }
   const [dob, setDob]                   = useState(player.date_of_birth ?? "");
   const [primaryPos, setPrimaryPos]     = useState<string[]>(player.primary_positions ?? []);
   const [secondaryPos, setSecondaryPos] = useState<string[]>(player.secondary_positions ?? []);
+  const [imageUrl, setImageUrl]         = useState<string | null>(player.image_url ?? null);
 
   const age = calculateAge(dob);
 
@@ -106,6 +108,7 @@ export function EditPlayerModal({ player, teamId, rosterId, open, onOpenChange }
       setDob(player.date_of_birth ?? "");
       setPrimaryPos(player.primary_positions ?? []);
       setSecondaryPos(player.secondary_positions ?? []);
+      setImageUrl(player.image_url ?? null);
     }
   }, [open, player]);
 
@@ -135,6 +138,20 @@ export function EditPlayerModal({ player, teamId, rosterId, open, onOpenChange }
                 <AlertDescription>{state.error}</AlertDescription>
               </Alert>
             )}
+
+            {/* ── Player photo ─────────────────────────────── */}
+            <div className="flex flex-col gap-1.5">
+              <Label>Player photo</Label>
+              <AvatarUpload
+                currentUrl={imageUrl}
+                bucket="player-images"
+                onUpload={setImageUrl}
+                size={80}
+                shape="circle"
+                alt={`${player.first_name} ${player.last_name}`}
+              />
+              <input type="hidden" name="image_url" value={imageUrl ?? ""} />
+            </div>
 
             {/* ── Player info ───────────────────────────────── */}
             <SectionHeading>Player info</SectionHeading>

@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { useActionState, useEffect, useMemo, useState } from "react";
 import { createPlayer, type PlayerFormState } from "@/app/actions/players";
 import { Alert, AlertDescription } from "@/components/ui/alert";
+import { AvatarUpload } from "@/components/ui/avatar-upload";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import {
@@ -127,6 +128,7 @@ export function AddPlayerModal(props: AddPlayerModalProps) {
   const [primaryPos, setPrimaryPos]     = useState<string[]>([]);
   const [secondaryPos, setSecondaryPos] = useState<string[]>([]);
   const [justAdded, setJustAdded]       = useState(false);
+  const [imageUrl, setImageUrl]         = useState<string | null>(null);
 
   const dir = isDirectoryProps(props);
   const [dirTeamKey, setDirTeamKey]     = useState<string>(""); // team id or "__none__"
@@ -158,6 +160,7 @@ export function AddPlayerModal(props: AddPlayerModalProps) {
     setDob("");
     setPrimaryPos([]);
     setSecondaryPos([]);
+    setImageUrl(null);
     if (dir) {
       setDirTeamKey("");
       setDirRosterId("");
@@ -277,6 +280,20 @@ export function AddPlayerModal(props: AddPlayerModalProps) {
 
             {/* ── Basic info ───────────────────────────────────── */}
             <SectionHeading>Player info</SectionHeading>
+
+            {/* Player photo */}
+            <div className="flex flex-col gap-1.5">
+              <Label>Player photo</Label>
+              <AvatarUpload
+                currentUrl={imageUrl}
+                bucket="player-images"
+                onUpload={setImageUrl}
+                size={80}
+                shape="circle"
+                alt="Player photo"
+              />
+              <input type="hidden" name="image_url" value={imageUrl ?? ""} />
+            </div>
 
             <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
               <Field id="first_name" label="First name" required>

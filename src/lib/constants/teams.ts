@@ -61,6 +61,7 @@ export type Player = {
   medical_notes: string | null;
   uniform_size: string | null;
   notes: string | null;
+  image_url: string | null;
   created_at: string;
   updated_at: string;
 };
@@ -114,6 +115,7 @@ export type Team = {
   organization: string | null;
   is_active: boolean;
   is_archived: boolean;
+  logo_url: string | null;
   created_at: string;
   updated_at: string;
 };

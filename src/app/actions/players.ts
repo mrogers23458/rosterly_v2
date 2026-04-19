@@ -56,6 +56,7 @@ export async function createPlayer(
   const medical     = (formData.get("medical_notes") as string | null)?.trim() || null;
   const uniform     = (formData.get("uniform_size")  as string | null) || null;
   const notes       = (formData.get("notes") as string | null)?.trim() || null;
+  const imageUrl    = (formData.get("image_url") as string | null)?.trim() || null;
 
   if (!firstName) return { error: "First name is required." };
   if (!lastName)  return { error: "Last name is required." };
@@ -79,6 +80,7 @@ export async function createPlayer(
     medical_notes:         medical,
     uniform_size:          uniform,
     notes,
+    image_url:             imageUrl,
   });
 
   if (error) {
@@ -156,6 +158,7 @@ export async function updatePlayer(
   const medical     = (formData.get("medical_notes") as string | null)?.trim() || null;
   const uniform     = (formData.get("uniform_size")  as string | null) || null;
   const notes       = (formData.get("notes") as string | null)?.trim() || null;
+  const imageUrl    = (formData.get("image_url") as string | null)?.trim() || null;
 
   if (!firstName) return { error: "First name is required." };
   if (!lastName)  return { error: "Last name is required." };
@@ -179,6 +182,7 @@ export async function updatePlayer(
       medical_notes:         medical,
       uniform_size:          uniform,
       notes,
+      image_url:             imageUrl,
     })
     .eq("id", playerId)
     .eq("user_id", user.id);

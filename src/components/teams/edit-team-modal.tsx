@@ -5,6 +5,7 @@ import { useActionState, useEffect, useState } from "react";
 import { updateTeam, type TeamFormState } from "@/app/actions/teams";
 import { TeamFormFields } from "@/components/teams/team-form-fields";
 import { Alert, AlertDescription } from "@/components/ui/alert";
+import { AvatarUpload } from "@/components/ui/avatar-upload";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -14,6 +15,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import { Label } from "@/components/ui/label";
 import type { Team } from "@/lib/constants/teams";
 
 const initialState: TeamFormState = {};
@@ -28,12 +30,15 @@ export function EditTeamModal({ team, open, onOpenChange }: EditTeamModalProps) 
   const router = useRouter();
   const boundAction = updateTeam.bind(null, team.id);
   const [state, action, pending] = useActionState(boundAction, initialState);
-  // Key forces the form to remount (and reset) when the modal reopens for a different team
   const [formKey, setFormKey] = useState(team.id);
+  const [logoUrl, setLogoUrl] = useState<string | null>(team.logo_url ?? null);
 
   useEffect(() => {
-    if (open) setFormKey(team.id + Date.now());
-  }, [open, team.id]);
+    if (open) {
+      setFormKey(team.id + Date.now());
+      setLogoUrl(team.logo_url ?? null);
+    }
+  }, [open, team.id, team.logo_url]);
 
   useEffect(() => {
     if (state.success) {
@@ -58,6 +63,20 @@ export function EditTeamModal({ team, open, onOpenChange }: EditTeamModalProps) 
                 <AlertDescription>{state.error}</AlertDescription>
               </Alert>
             )}
+
+            {/* Team logo */}
+            <div className="flex flex-col gap-1.5">
+              <Label>Team logo</Label>
+              <AvatarUpload
+                currentUrl={logoUrl}
+                bucket="team-logos"
+                onUpload={setLogoUrl}
+                size={80}
+                shape="square"
+                alt="Team logo"
+              />
+              <input type="hidden" name="logo_url" value={logoUrl ?? ""} />
+            </div>
 
             <TeamFormFields defaults={team} />
 

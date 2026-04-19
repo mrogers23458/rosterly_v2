@@ -47,43 +47,59 @@ export function PlayerDetailHeader({ player, teamId, rosterId, userRole }: Props
   return (
     <>
       <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
-        {/* Left: identity */}
-        <div className="flex flex-col gap-2">
-          <div className="flex flex-wrap items-center gap-2">
-            <h1 className="text-2xl font-bold tracking-tight sm:text-3xl">{displayName}</h1>
-            {player.jersey_number && (
-              <span className="rounded-full border border-border bg-muted px-2.5 py-0.5 text-sm font-semibold text-muted-foreground">
-                #{player.jersey_number}
-              </span>
-            )}
-            <Badge variant={player.is_active ? "success" : "muted"}>
-              {player.is_active ? "Active" : "Inactive"}
-            </Badge>
-          </div>
+        {/* Left: photo + identity */}
+        <div className="flex items-start gap-4">
+          {/* Player photo / avatar */}
+          {player.image_url ? (
+            /* eslint-disable-next-line @next/next/no-img-element */
+            <img
+              src={player.image_url}
+              alt={displayName}
+              className="h-16 w-16 flex-shrink-0 rounded-full border border-border object-cover shadow-sm"
+            />
+          ) : (
+            <div className="flex h-16 w-16 flex-shrink-0 items-center justify-center rounded-full border border-dashed border-border bg-muted text-xl font-bold text-muted-foreground">
+              {player.first_name.charAt(0).toUpperCase()}{player.last_name.charAt(0).toUpperCase()}
+            </div>
+          )}
 
-          {/* Bats / Throws + Positions */}
-          <div className="flex flex-wrap items-center gap-2">
-            {batsThrows && (
-              <span className="text-sm text-muted-foreground">
-                B/T: <span className="font-medium text-foreground">{batsThrows}</span>
-              </span>
-            )}
-            {batsThrows && allPositions.length > 0 && (
-              <span className="text-muted-foreground/40">·</span>
-            )}
-            {allPositions.map(({ pos, primary }) => (
-              <span
-                key={pos}
-                className={cn(
-                  "rounded border px-1.5 py-0.5 text-xs font-semibold",
-                  primary
-                    ? "border-primary/30 bg-primary/10 text-primary"
-                    : "border-border bg-muted text-muted-foreground",
-                )}
-              >
-                {pos}
-              </span>
-            ))}
+          <div className="flex flex-col gap-2">
+            <div className="flex flex-wrap items-center gap-2">
+              <h1 className="text-2xl font-bold tracking-tight sm:text-3xl">{displayName}</h1>
+              {player.jersey_number && (
+                <span className="rounded-full border border-border bg-muted px-2.5 py-0.5 text-sm font-semibold text-muted-foreground">
+                  #{player.jersey_number}
+                </span>
+              )}
+              <Badge variant={player.is_active ? "success" : "muted"}>
+                {player.is_active ? "Active" : "Inactive"}
+              </Badge>
+            </div>
+
+            {/* Bats / Throws + Positions */}
+            <div className="flex flex-wrap items-center gap-2">
+              {batsThrows && (
+                <span className="text-sm text-muted-foreground">
+                  B/T: <span className="font-medium text-foreground">{batsThrows}</span>
+                </span>
+              )}
+              {batsThrows && allPositions.length > 0 && (
+                <span className="text-muted-foreground/40">·</span>
+              )}
+              {allPositions.map(({ pos, primary }) => (
+                <span
+                  key={pos}
+                  className={cn(
+                    "rounded border px-1.5 py-0.5 text-xs font-semibold",
+                    primary
+                      ? "border-primary/30 bg-primary/10 text-primary"
+                      : "border-border bg-muted text-muted-foreground",
+                  )}
+                >
+                  {pos}
+                </span>
+              ))}
+            </div>
           </div>
         </div>
 
