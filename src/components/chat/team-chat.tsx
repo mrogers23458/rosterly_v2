@@ -6,6 +6,7 @@ import { deleteTeamMessage, sendTeamMessage, type TeamMessage } from "@/app/acti
 import { Button } from "@/components/ui/button";
 import { createClient } from "@/utils/supabase/client";
 import { cn } from "@/lib/utils";
+import type { RealtimeChannel } from "@supabase/supabase-js";
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
@@ -159,58 +160,48 @@ export function TeamChat({ teamId, currentUserId, initialMessages }: Props) {
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [isPending,  startTransition] = useTransition();
 
-  const bottomRef  = useRef<HTMLDivElement>(null);
-  const inputRef   = useRef<HTMLTextAreaElement>(null);
+  const bottomRef     = useRef<HTMLDivElement>(null);
+  const inputRef      = useRef<HTMLTextAreaElement>(null);
   const isFirstRender = useRef(true);
+  // Keep a ref to the channel so handleSend / handleDelete can broadcast on it
+  const channelRef    = useRef<RealtimeChannel | null>(null);
 
-  // ── Realtime subscription ──────────────────────────────────────────────────
+  // ── Realtime — Broadcast ───────────────────────────────────────────────────
+  // Broadcast is designed for exactly this use-case: the sender pushes the
+  // message to the channel after a successful DB insert and every other
+  // subscriber receives it instantly via WebSocket.  No replication lag, no
+  // RLS evaluation overhead, no REPLICA IDENTITY requirements.
   useEffect(() => {
     const supabase = createClient();
 
     const channel = supabase
       .channel(`team-chat-${teamId}`)
-      .on(
-        "postgres_changes",
-        {
-          event:  "INSERT",
-          schema: "public",
-          table:  "team_messages",
-          filter: `team_id=eq.${teamId}`,
-        },
-        (payload) => {
-          const msg = payload.new as TeamMessage;
-          // Avoid duplicating optimistic messages sent by the current user
-          setMessages((prev) => {
-            if (prev.some((m) => m.id === msg.id)) return prev;
-            return [...prev, msg];
-          });
-        },
-      )
-      .on(
-        "postgres_changes",
-        {
-          event:  "DELETE",
-          schema: "public",
-          table:  "team_messages",
-          filter: `team_id=eq.${teamId}`,
-        },
-        (payload) => {
-          setMessages((prev) => prev.filter((m) => m.id !== payload.old.id));
-        },
-      )
+      .on("broadcast", { event: "message" }, ({ payload }) => {
+        const msg = payload.msg as TeamMessage;
+        setMessages((prev) => {
+          if (prev.some((m) => m.id === msg.id)) return prev;
+          return [...prev, msg];
+        });
+      })
+      .on("broadcast", { event: "delete" }, ({ payload }) => {
+        setMessages((prev) => prev.filter((m) => m.id !== (payload as { id: string }).id));
+      })
       .subscribe();
 
-    return () => { supabase.removeChannel(channel); };
+    channelRef.current = channel;
+
+    return () => {
+      supabase.removeChannel(channel);
+      channelRef.current = null;
+    };
   }, [teamId]);
 
   // ── Auto-scroll ────────────────────────────────────────────────────────────
   useEffect(() => {
     if (isFirstRender.current) {
-      // On first render, jump immediately (no animation)
       bottomRef.current?.scrollIntoView();
       isFirstRender.current = false;
     } else {
-      // For new messages, smooth scroll
       bottomRef.current?.scrollIntoView({ behavior: "smooth" });
     }
   }, [messages]);
@@ -223,7 +214,7 @@ export function TeamChat({ teamId, currentUserId, initialMessages }: Props) {
     setSendError(null);
     setInput("");
 
-    // Optimistic message (no id yet — realtime will add the real one)
+    // Optimistic update so the sender sees their message immediately
     const optimistic: TeamMessage = {
       id:          `optimistic-${Date.now()}`,
       team_id:     teamId,
@@ -237,17 +228,20 @@ export function TeamChat({ teamId, currentUserId, initialMessages }: Props) {
     startTransition(async () => {
       const res = await sendTeamMessage(teamId, body);
       if (res.error) {
-        // Roll back optimistic message
         setMessages((prev) => prev.filter((m) => m.id !== optimistic.id));
         setSendError(res.error);
-        setInput(body); // restore draft
-      }
-      // On success, realtime subscription will add the real message.
-      // Remove the optimistic one once a real message with matching body arrives.
-      else {
+        setInput(body);
+      } else {
+        // Replace the optimistic placeholder with the real persisted message
         setMessages((prev) =>
-          prev.map((m) => m.id === optimistic.id ? res.data : m),
+          prev.map((m) => (m.id === optimistic.id ? res.data : m)),
         );
+        // Push to every other subscriber via Broadcast
+        channelRef.current?.send({
+          type:    "broadcast",
+          event:   "message",
+          payload: { msg: res.data },
+        });
       }
     });
   }
@@ -262,19 +256,23 @@ export function TeamChat({ teamId, currentUserId, initialMessages }: Props) {
   // ── Delete ─────────────────────────────────────────────────────────────────
   function handleDelete(messageId: string) {
     setDeletingId(messageId);
-    // Optimistic removal
     setMessages((prev) => prev.filter((m) => m.id !== messageId));
     startTransition(async () => {
       const res = await deleteTeamMessage(messageId, teamId);
       setDeletingId(null);
       if (res.error) {
-        // Re-fetch isn't trivial here, just show error
         setSendError(res.error);
+      } else {
+        channelRef.current?.send({
+          type:    "broadcast",
+          event:   "delete",
+          payload: { id: messageId },
+        });
       }
     });
   }
 
-  // ── Render messages with date dividers and run grouping ────────────────────
+  // ── Render with date dividers and sender-run grouping ──────────────────────
   const rendered: React.ReactNode[] = [];
   let lastDateKey = "";
 
@@ -286,7 +284,6 @@ export function TeamChat({ teamId, currentUserId, initialMessages }: Props) {
       lastDateKey = dateKey;
     }
 
-    // Show header (avatar + name + timestamp) if first in a run from this sender
     const prev = messages[i - 1];
     const showHeader =
       !prev ||
@@ -317,9 +314,7 @@ export function TeamChat({ teamId, currentUserId, initialMessages }: Props) {
             <p className="text-xs">Be the first to say something to the team!</p>
           </div>
         ) : (
-          <div className="flex flex-col gap-1.5">
-            {rendered}
-          </div>
+          <div className="flex flex-col gap-1.5">{rendered}</div>
         )}
         <div ref={bottomRef} />
       </div>
@@ -340,7 +335,6 @@ export function TeamChat({ teamId, currentUserId, initialMessages }: Props) {
             className="flex-1 resize-none rounded-lg border border-input bg-muted/30 px-3 py-2 text-sm leading-relaxed placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-ring"
             style={{ maxHeight: "120px", overflowY: "auto" }}
             onInput={(e) => {
-              // Auto-grow
               const el = e.currentTarget;
               el.style.height = "auto";
               el.style.height = `${Math.min(el.scrollHeight, 120)}px`;
