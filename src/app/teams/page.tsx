@@ -1,9 +1,6 @@
 import { cookies } from "next/headers";
 import { createClient } from "@/utils/supabase/server";
-import { TeamsArchivedSection } from "@/components/teams/teams-archived-section";
-import { TeamsDirectory } from "@/components/teams/teams-directory";
-import { TeamsEmptyState } from "@/components/teams/teams-empty-state";
-import { TeamsPageToolbar } from "@/components/teams/teams-page-toolbar";
+import { TeamsPageContent } from "@/components/teams/teams-page-content";
 import { getUserTeamRoles } from "@/lib/permissions";
 import type { Team } from "@/lib/constants/teams";
 import type { TeamRole } from "@/lib/constants/roles";
@@ -28,34 +25,12 @@ export default async function TeamsPage() {
 
   return (
     <div className="px-4 py-8 sm:px-6 md:px-8">
-      <div className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
-        <div>
-          <h1 className="text-2xl font-bold tracking-tight sm:text-3xl">Teams</h1>
-          <p className="mt-1 text-sm text-muted-foreground">
-            Your teams and seasons. Search below, or create and import from the toolbar.
-          </p>
-        </div>
-        {/* TeamsPageToolbar (create team) is always visible — users can always create their own team */}
-        {!error && <TeamsPageToolbar />}
-      </div>
-
-      {error && (
-        <div className="mb-4 rounded-lg border border-destructive/30 bg-destructive/5 px-4 py-3 text-sm text-destructive">
-          Could not load teams. Please try again.
-        </div>
-      )}
-
-      {!error && activeTeams.length === 0 && archivedTeams.length === 0 && (
-        <TeamsEmptyState />
-      )}
-
-      {!error && activeTeams.length > 0 && (
-        <TeamsDirectory teams={activeTeams} teamRoles={teamRoles} />
-      )}
-
-      {!error && archivedTeams.length > 0 && (
-        <TeamsArchivedSection teams={archivedTeams} teamRoles={teamRoles} />
-      )}
+      <TeamsPageContent
+        activeTeams={activeTeams}
+        archivedTeams={archivedTeams}
+        teamRoles={teamRoles}
+        error={!!error}
+      />
     </div>
   );
 }
