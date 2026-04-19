@@ -280,15 +280,31 @@ function EmptyState({ filtered }: { filtered: boolean }) {
 
 // ── main component ────────────────────────────────────────────────────────────
 
+/** Determine the current user's effective role for a given event.
+ *  - If the event belongs to a team: use the team role (may be undefined → null).
+ *  - If no team (or user not a member): fall back to "owner" if the user created it. */
+function resolveEventRole(
+  ev: TeamEvent,
+  teamRoles: Record<string, TeamRole> | undefined,
+  userId: string | undefined,
+): TeamRole | null {
+  if (ev.team_id) {
+    return teamRoles?.[ev.team_id] ?? (userId && ev.user_id === userId ? "owner" : null);
+  }
+  return userId && ev.user_id === userId ? "owner" : null;
+}
+
 type Props = {
   events:    TeamEvent[];
   teams:     Team[];
   rosters:   Roster[];
   lineups:   GameLineup[];
   teamRoles?: Record<string, TeamRole>;
+  /** The current user's ID — used to grant owner-level permissions on events they created. */
+  userId?: string;
 };
 
-export function EventBrowser({ events, teams, rosters, lineups, teamRoles }: Props) {
+export function EventBrowser({ events, teams, rosters, lineups, teamRoles, userId }: Props) {
   const [typeFilter, setTypeFilter] = useState<FilterType>("all");
   const [teamFilter, setTeamFilter] = useState<string>("all");
   const [search,     setSearch]     = useState("");
@@ -375,7 +391,7 @@ export function EventBrowser({ events, teams, rosters, lineups, teamRoles }: Pro
                 teams={teams}
                 rosters={rosters}
                 lineups={lineups}
-                userRole={ev.team_id ? teamRoles?.[ev.team_id] : null}
+                userRole={resolveEventRole(ev, teamRoles, userId)}
               />
             ))}
           </div>
@@ -391,7 +407,7 @@ export function EventBrowser({ events, teams, rosters, lineups, teamRoles }: Pro
                 teams={teams}
                 rosters={rosters}
                 lineups={lineups}
-                userRole={ev.team_id ? teamRoles?.[ev.team_id] : null}
+                userRole={resolveEventRole(ev, teamRoles, userId)}
               />
             ))}
           </div>
@@ -543,7 +559,7 @@ export function EventBrowser({ events, teams, rosters, lineups, teamRoles }: Pro
                     teams={teams}
                     rosters={rosters}
                     lineups={lineups}
-                    userRole={ev.team_id ? teamRoles?.[ev.team_id] : null}
+                    userRole={resolveEventRole(ev, teamRoles, userId)}
                   />
                 ))}
               </div>
@@ -559,7 +575,7 @@ export function EventBrowser({ events, teams, rosters, lineups, teamRoles }: Pro
                     teams={teams}
                     rosters={rosters}
                     lineups={lineups}
-                    userRole={ev.team_id ? teamRoles?.[ev.team_id] : null}
+                    userRole={resolveEventRole(ev, teamRoles, userId)}
                   />
                 ))}
               </div>

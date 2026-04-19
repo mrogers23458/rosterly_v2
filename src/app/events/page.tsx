@@ -3,7 +3,6 @@ import { createClient } from "@/utils/supabase/server";
 import { EventBrowser } from "@/components/events/event-browser";
 import { EventsPageToolbar } from "@/components/events/events-page-toolbar";
 import { getUserTeamRoles } from "@/lib/permissions";
-import { can } from "@/lib/constants/roles";
 import type { GameLineup, Roster, Team } from "@/lib/constants/teams";
 import type { TeamEvent } from "@/lib/constants/events";
 
@@ -43,7 +42,8 @@ export default async function EventsPage() {
   const lineupList = (lineups ?? []) as GameLineup[];
   const teamRoles  = user ? await getUserTeamRoles(supabase, user.id) : {};
 
-  const canCreateEvent = Object.values(teamRoles).some((r) => can(r, "event:create"));
+  // Any authenticated user can create events (no team required — e.g. tryouts).
+  const canCreateEvent = !!user;
 
   return (
     <div className="px-4 py-8 sm:px-6 md:px-8">
@@ -68,6 +68,7 @@ export default async function EventsPage() {
         rosters={rosterList}
         lineups={lineupList}
         teamRoles={teamRoles}
+        userId={user?.id}
       />
     </div>
   );
