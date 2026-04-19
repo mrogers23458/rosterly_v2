@@ -220,8 +220,8 @@ export function PlayerBrowser({ players, rosters, teams, teamRoles }: Props) {
       ) : (
         <div className="grid grid-cols-1 items-stretch gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
           {filtered.map((p) => {
-            const canLink = Boolean(p.teamId);
             const displayName = p.preferred_name?.trim() || `${p.first_name} ${p.last_name}`.trim();
+            const initials = `${p.first_name.charAt(0)}${p.last_name.charAt(0)}`.toUpperCase();
             return (
               <div
                 key={p.id}
@@ -234,9 +234,25 @@ export function PlayerBrowser({ players, rosters, teams, teamRoles }: Props) {
                 />
 
                 <div className="flex shrink-0 items-start justify-between gap-2">
-                  <h3 className="text-sm font-semibold leading-snug group-hover:text-primary transition-colors">
-                    {displayName}
-                  </h3>
+                  {/* Avatar + name */}
+                  <div className="flex min-w-0 items-center gap-2.5">
+                    {p.image_url ? (
+                      /* eslint-disable-next-line @next/next/no-img-element */
+                      <img
+                        src={p.image_url}
+                        alt={displayName}
+                        className="h-9 w-9 flex-shrink-0 rounded-full border border-border object-cover"
+                      />
+                    ) : (
+                      <div className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-full border border-dashed border-border bg-muted text-xs font-bold text-muted-foreground">
+                        {initials}
+                      </div>
+                    )}
+                    <h3 className="min-w-0 text-sm font-semibold leading-snug group-hover:text-primary transition-colors">
+                      {displayName}
+                    </h3>
+                  </div>
+
                   <div className="relative z-10 flex shrink-0 items-center gap-1">
                     <Badge variant={p.is_active ? "success" : "muted"} className="shrink-0 text-[10px]">
                       {p.is_active ? "Active" : "Inactive"}

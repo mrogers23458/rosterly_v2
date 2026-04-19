@@ -176,7 +176,19 @@ function PlayerRow({ player, teamId, rosterId, userRole }: { player: Player; tea
         {player.jersey_number ?? "—"}
       </td>
       <td className="px-4 py-3 font-medium">
-          <a href={`/players/${player.id}`} className="hover:text-primary transition-colors hover:underline">
+          <a href={`/players/${player.id}`} className="inline-flex items-center gap-2 hover:text-primary transition-colors hover:underline">
+            {player.image_url ? (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img
+                src={player.image_url}
+                alt={displayName}
+                className="h-7 w-7 flex-shrink-0 rounded-full border border-border object-cover"
+              />
+            ) : (
+              <span className="flex h-7 w-7 flex-shrink-0 items-center justify-center rounded-full border border-dashed border-border bg-muted text-[10px] font-bold text-muted-foreground">
+                {player.first_name.charAt(0)}{player.last_name.charAt(0)}
+              </span>
+            )}
             {displayName}
           </a>
         </td>

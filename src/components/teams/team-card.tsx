@@ -14,9 +14,25 @@ export function TeamCard({ team, userRole }: { team: Team; userRole?: TeamRole |
       />
 
       <div className="flex shrink-0 items-start justify-between gap-2">
-        <h3 className="text-sm font-semibold leading-snug group-hover:text-primary transition-colors">
-          {team.name}
-        </h3>
+        {/* Logo + name */}
+        <div className="flex min-w-0 items-center gap-2.5">
+          {team.logo_url ? (
+            /* eslint-disable-next-line @next/next/no-img-element */
+            <img
+              src={team.logo_url}
+              alt={`${team.name} logo`}
+              className="h-9 w-9 flex-shrink-0 rounded-lg border border-border object-cover"
+            />
+          ) : (
+            <div className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-lg border border-dashed border-border bg-muted text-sm font-bold text-muted-foreground">
+              {team.name.charAt(0).toUpperCase()}
+            </div>
+          )}
+          <h3 className="min-w-0 text-sm font-semibold leading-snug group-hover:text-primary transition-colors">
+            {team.name}
+          </h3>
+        </div>
+
         <div className="relative z-10 flex shrink-0 items-center gap-1">
           <Badge variant={team.is_active ? "success" : "muted"}>
             {team.is_active ? "Active" : "Inactive"}
