@@ -1,15 +1,21 @@
 "use client";
 
-import { BarChart3, Download, Users } from "lucide-react";
+import { BarChart3, ChevronDown, ChevronUp, ChevronsUpDown, Download, Users } from "lucide-react";
+import Link from "next/link";
 import { useState, useMemo } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { GcStatsImportModal } from "@/components/import/gc-stats-import-modal";
 import type { AggregatedPlayerStat } from "@/app/stats/page";
 import type { Player, Roster, Team } from "@/lib/constants/teams";
-import Link from "next/link";
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
+
+function calcAvg(hits: number, ab: number)  { return ab  === 0 ? 0 : hits / ab; }
+function calcEra(er: number, ip: number)    { return ip  === 0 ? Infinity : (er * 9) / ip; }
+function calcFp(po: number, a: number, e: number) {
+  const tc = po + a + e; return tc === 0 ? 1 : (po + a) / tc;
+}
 
 function fmtAvg(hits: number, ab: number): string {
   if (ab === 0) return ".000";
@@ -21,15 +27,10 @@ function fmtEra(er: number, ip: number): string {
   return ((er * 9) / ip).toFixed(2);
 }
 
-function fmtFp(po: number, a: number, e: number): string {
-  const tc = po + a + e;
-  if (tc === 0) return "—";
-  return ((po + a) / tc).toFixed(3).replace(/^0/, "");
-}
-
 // ─── Types ────────────────────────────────────────────────────────────────────
 
-type View = "player" | "team";
+type SortDir = "asc" | "desc";
+type View    = "player" | "team";
 
 type TeamStat = {
   team_id:         string;
@@ -51,14 +52,133 @@ type TeamStat = {
   errors:          number;
 };
 
+// ─── Sort header cell ────────────────────────────────────────────────────────
+
+function SortTh({
+  label, col, active, dir, align = "right", className = "", onClick,
+}: {
+  label:     string;
+  col:       string;
+  active:    boolean;
+  dir:       SortDir;
+  align?:    "left" | "right";
+  className?: string;
+  onClick:   (col: string) => void;
+}) {
+  const Icon = active ? (dir === "asc" ? ChevronUp : ChevronDown) : ChevronsUpDown;
+  return (
+    <th
+      className={`whitespace-nowrap px-3 py-2.5 text-xs font-semibold ${
+        align === "right" ? "text-right" : "text-left"
+      } ${active ? "text-foreground" : "text-muted-foreground"} ${className}`}
+    >
+      <button
+        type="button"
+        onClick={() => onClick(col)}
+        className={`inline-flex items-center gap-0.5 transition-colors hover:text-foreground ${
+          align === "right" ? "flex-row-reverse" : "flex-row"
+        }`}
+      >
+        {label}
+        <Icon className={`h-3 w-3 shrink-0 ${active ? "opacity-100" : "opacity-40"}`} />
+      </button>
+    </th>
+  );
+}
+
+// ─── Player sort keys ─────────────────────────────────────────────────────────
+
+type PlayerSortKey =
+  | "name" | "team" | "jersey"
+  | "at_bats" | "hits" | "avg" | "doubles" | "triples" | "home_runs"
+  | "rbi" | "runs" | "walks" | "strikeouts_bat" | "stolen_bases" | "hit_by_pitch"
+  | "innings_pitched" | "era" | "strikeouts_pit" | "walks_allowed"
+  | "putouts" | "assists" | "errors";
+
+function playerSortVal(r: AggregatedPlayerStat, key: PlayerSortKey): number | string {
+  switch (key) {
+    case "name":    return `${r.last_name} ${r.first_name}`.toLowerCase();
+    case "team":    return r.team_name.toLowerCase();
+    case "jersey":  return parseInt(r.jersey_number ?? "9999") || 9999;
+    case "avg":     return calcAvg(r.hits, r.at_bats);
+    case "era":     return calcEra(r.earned_runs, r.innings_pitched);
+    case "at_bats":        return r.at_bats;
+    case "hits":           return r.hits;
+    case "doubles":        return r.doubles;
+    case "triples":        return r.triples;
+    case "home_runs":      return r.home_runs;
+    case "rbi":            return r.rbi;
+    case "runs":           return r.runs;
+    case "walks":          return r.walks;
+    case "strikeouts_bat": return r.strikeouts_bat;
+    case "stolen_bases":   return r.stolen_bases;
+    case "hit_by_pitch":   return r.hit_by_pitch;
+    case "innings_pitched":return r.innings_pitched;
+    case "strikeouts_pit": return r.strikeouts_pit;
+    case "walks_allowed":  return r.walks_allowed;
+    case "putouts":        return r.putouts;
+    case "assists":        return r.assists;
+    case "errors":         return r.errors;
+    default: return 0;
+  }
+}
+
+function sortPlayers(
+  rows: AggregatedPlayerStat[],
+  key: PlayerSortKey,
+  dir: SortDir,
+): AggregatedPlayerStat[] {
+  return [...rows].sort((a, b) => {
+    const av = playerSortVal(a, key);
+    const bv = playerSortVal(b, key);
+    let cmp: number;
+    if (typeof av === "string") {
+      cmp = av.localeCompare(bv as string);
+    } else {
+      // ERA Infinity (no IP) always sorts to the bottom regardless of direction
+      if (av === Infinity && bv === Infinity) cmp = 0;
+      else if (av === Infinity) cmp = 1;
+      else if (bv === Infinity) cmp = -1;
+      else cmp = (av as number) - (bv as number);
+    }
+    return dir === "asc" ? cmp : -cmp;
+  });
+}
+
 // ─── Player table ─────────────────────────────────────────────────────────────
 
 function PlayerStatsTable({ rows }: { rows: AggregatedPlayerStat[] }) {
+  const [sortKey, setSortKey] = useState<PlayerSortKey>("avg");
+  const [sortDir, setSortDir] = useState<SortDir>("desc");
+
+  function handleSort(col: string) {
+    const c = col as PlayerSortKey;
+    if (c === sortKey) {
+      setSortDir((d) => (d === "asc" ? "desc" : "asc"));
+    } else {
+      setSortKey(c);
+      // Name / team sort ascending first; stats sort descending first
+      setSortDir(c === "name" || c === "team" || c === "jersey" ? "asc" : "desc");
+    }
+  }
+
+  const sorted = useMemo(() => sortPlayers(rows, sortKey, sortDir), [rows, sortKey, sortDir]);
+
+  function th(label: string, col: PlayerSortKey, className = "") {
+    return (
+      <SortTh
+        label={label} col={col}
+        active={sortKey === col} dir={sortDir}
+        onClick={handleSort} className={className}
+      />
+    );
+  }
+
   if (rows.length === 0) {
     return (
       <div className="rounded-lg border border-dashed border-border bg-card p-8 text-center text-sm text-muted-foreground">
         No stats found.{" "}
-        <span>Import from GameChanger or add stats manually on a player&apos;s detail page.</span>
+        Import from GameChanger or add stats manually on a player&apos;s detail page.
       </div>
     );
   }
@@ -68,28 +188,28 @@ function PlayerStatsTable({ rows }: { rows: AggregatedPlayerStat[] }) {
       <table className="w-full text-sm">
         <thead>
           <tr className="border-b border-border bg-muted/50">
-            <th className="whitespace-nowrap px-3 py-2.5 text-left text-xs font-semibold text-muted-foreground">#</th>
-            <th className="whitespace-nowrap px-3 py-2.5 text-left text-xs font-semibold text-muted-foreground">Player</th>
-            <th className="hidden whitespace-nowrap px-3 py-2.5 text-left text-xs font-semibold text-muted-foreground lg:table-cell">Team</th>
-            <th className="hidden whitespace-nowrap px-3 py-2.5 text-left text-xs font-semibold text-muted-foreground xl:table-cell">Roster</th>
-            <th className="whitespace-nowrap px-3 py-2.5 text-right text-xs font-semibold text-muted-foreground">AB</th>
-            <th className="whitespace-nowrap px-3 py-2.5 text-right text-xs font-semibold text-muted-foreground">H</th>
-            <th className="whitespace-nowrap px-3 py-2.5 text-right text-xs font-semibold text-primary">AVG</th>
-            <th className="hidden whitespace-nowrap px-3 py-2.5 text-right text-xs font-semibold text-muted-foreground sm:table-cell">2B</th>
-            <th className="hidden whitespace-nowrap px-3 py-2.5 text-right text-xs font-semibold text-muted-foreground sm:table-cell">3B</th>
-            <th className="whitespace-nowrap px-3 py-2.5 text-right text-xs font-semibold text-muted-foreground">HR</th>
-            <th className="whitespace-nowrap px-3 py-2.5 text-right text-xs font-semibold text-muted-foreground">RBI</th>
-            <th className="hidden whitespace-nowrap px-3 py-2.5 text-right text-xs font-semibold text-muted-foreground md:table-cell">R</th>
-            <th className="hidden whitespace-nowrap px-3 py-2.5 text-right text-xs font-semibold text-muted-foreground md:table-cell">BB</th>
-            <th className="hidden whitespace-nowrap px-3 py-2.5 text-right text-xs font-semibold text-muted-foreground md:table-cell">K</th>
-            <th className="hidden whitespace-nowrap px-3 py-2.5 text-right text-xs font-semibold text-muted-foreground md:table-cell">SB</th>
-            <th className="hidden whitespace-nowrap px-3 py-2.5 text-right text-xs font-semibold text-muted-foreground lg:table-cell">IP</th>
-            <th className="hidden whitespace-nowrap px-3 py-2.5 text-right text-xs font-semibold text-primary lg:table-cell">ERA</th>
-            <th className="hidden whitespace-nowrap px-3 py-2.5 text-right text-xs font-semibold text-muted-foreground xl:table-cell">E</th>
+            <SortTh label="#"      col="jersey" active={sortKey === "jersey"} dir={sortDir} onClick={handleSort} align="left"  />
+            <SortTh label="Player" col="name"   active={sortKey === "name"}   dir={sortDir} onClick={handleSort} align="left"  />
+            <SortTh label="Team"   col="team"   active={sortKey === "team"}   dir={sortDir} onClick={handleSort} align="left"
+              className="hidden lg:table-cell" />
+            {th("AB",  "at_bats")}
+            {th("H",   "hits")}
+            {th("AVG", "avg")}
+            {th("2B",  "doubles",       "hidden sm:table-cell")}
+            {th("3B",  "triples",       "hidden sm:table-cell")}
+            {th("HR",  "home_runs")}
+            {th("RBI", "rbi")}
+            {th("R",   "runs",          "hidden md:table-cell")}
+            {th("BB",  "walks",         "hidden md:table-cell")}
+            {th("K",   "strikeouts_bat","hidden md:table-cell")}
+            {th("SB",  "stolen_bases",  "hidden md:table-cell")}
+            {th("IP",  "innings_pitched","hidden lg:table-cell")}
+            {th("ERA", "era",           "hidden lg:table-cell")}
+            {th("E",   "errors",        "hidden xl:table-cell")}
           </tr>
         </thead>
         <tbody className="divide-y divide-border">
-          {rows.map((r) => (
+          {sorted.map((r) => (
             <tr key={r.player_id} className="hover:bg-muted/20 transition-colors">
               <td className="px-3 py-2.5 text-xs text-muted-foreground">
                 {r.jersey_number ? `#${r.jersey_number}` : "—"}
@@ -103,10 +223,9 @@ function PlayerStatsTable({ rows }: { rows: AggregatedPlayerStat[] }) {
                 </Link>
               </td>
               <td className="hidden px-3 py-2.5 text-xs text-muted-foreground lg:table-cell">{r.team_name}</td>
-              <td className="hidden px-3 py-2.5 text-xs text-muted-foreground xl:table-cell">{r.roster_name}</td>
               <td className="px-3 py-2.5 text-right tabular-nums">{r.at_bats}</td>
               <td className="px-3 py-2.5 text-right tabular-nums">{r.hits}</td>
-              <td className="px-3 py-2.5 text-right tabular-nums font-semibold text-primary">
+              <td className={`px-3 py-2.5 text-right tabular-nums font-semibold ${sortKey === "avg" ? "text-primary" : ""}`}>
                 {fmtAvg(r.hits, r.at_bats)}
               </td>
               <td className="hidden px-3 py-2.5 text-right tabular-nums sm:table-cell">{r.doubles}</td>
@@ -118,7 +237,7 @@ function PlayerStatsTable({ rows }: { rows: AggregatedPlayerStat[] }) {
               <td className="hidden px-3 py-2.5 text-right tabular-nums md:table-cell">{r.strikeouts_bat}</td>
               <td className="hidden px-3 py-2.5 text-right tabular-nums md:table-cell">{r.stolen_bases}</td>
               <td className="hidden px-3 py-2.5 text-right tabular-nums lg:table-cell">{r.innings_pitched}</td>
-              <td className="hidden px-3 py-2.5 text-right tabular-nums font-semibold text-primary lg:table-cell">
+              <td className={`hidden px-3 py-2.5 text-right tabular-nums font-semibold lg:table-cell ${sortKey === "era" ? "text-primary" : ""}`}>
                 {fmtEra(r.earned_runs, r.innings_pitched)}
               </td>
               <td className="hidden px-3 py-2.5 text-right tabular-nums xl:table-cell">{r.errors}</td>
@@ -130,9 +249,79 @@ function PlayerStatsTable({ rows }: { rows: AggregatedPlayerStat[] }) {
   );
 }
 
+// ─── Team sort keys ───────────────────────────────────────────────────────────
+
+type TeamSortKey =
+  | "name" | "player_count"
+  | "at_bats" | "hits" | "avg" | "home_runs" | "rbi" | "runs"
+  | "walks" | "strikeouts_bat" | "stolen_bases"
+  | "innings_pitched" | "era" | "errors";
+
+function teamSortVal(r: TeamStat, key: TeamSortKey): number | string {
+  switch (key) {
+    case "name":           return r.team_name.toLowerCase();
+    case "player_count":   return r.player_count;
+    case "avg":            return calcAvg(r.hits, r.at_bats);
+    case "era":            return calcEra(r.earned_runs, r.innings_pitched);
+    case "at_bats":        return r.at_bats;
+    case "hits":           return r.hits;
+    case "home_runs":      return r.home_runs;
+    case "rbi":            return r.rbi;
+    case "runs":           return r.runs;
+    case "walks":          return r.walks;
+    case "strikeouts_bat": return r.strikeouts_bat;
+    case "stolen_bases":   return r.stolen_bases;
+    case "innings_pitched":return r.innings_pitched;
+    case "errors":         return r.errors;
+    default: return 0;
+  }
+}
+
+function sortTeams(rows: TeamStat[], key: TeamSortKey, dir: SortDir): TeamStat[] {
+  return [...rows].sort((a, b) => {
+    const av = teamSortVal(a, key);
+    const bv = teamSortVal(b, key);
+    let cmp: number;
+    if (typeof av === "string") {
+      cmp = av.localeCompare(bv as string);
+    } else {
+      if (av === Infinity && bv === Infinity) cmp = 0;
+      else if (av === Infinity) cmp = 1;
+      else if (bv === Infinity) cmp = -1;
+      else cmp = (av as number) - (bv as number);
+    }
+    return dir === "asc" ? cmp : -cmp;
+  });
+}
+
 // ─── Team table ───────────────────────────────────────────────────────────────
 
 function TeamStatsTable({ rows }: { rows: TeamStat[] }) {
+  const [sortKey, setSortKey] = useState<TeamSortKey>("avg");
+  const [sortDir, setSortDir] = useState<SortDir>("desc");
+
+  function handleSort(col: string) {
+    const c = col as TeamSortKey;
+    if (c === sortKey) {
+      setSortDir((d) => (d === "asc" ? "desc" : "asc"));
+    } else {
+      setSortKey(c);
+      setSortDir(c === "name" ? "asc" : "desc");
+    }
+  }
+
+  const sorted = useMemo(() => sortTeams(rows, sortKey, sortDir), [rows, sortKey, sortDir]);
+
+  function th(label: string, col: TeamSortKey, className = "") {
+    return (
+      <SortTh
+        label={label} col={col}
+        active={sortKey === col} dir={sortDir}
+        onClick={handleSort} className={className}
+      />
+    );
+  }
+
   if (rows.length === 0) {
     return (
       <div className="rounded-lg border border-dashed border-border bg-card p-8 text-center text-sm text-muted-foreground">
@@ -146,30 +335,30 @@ function TeamStatsTable({ rows }: { rows: TeamStat[] }) {
       <table className="w-full text-sm">
         <thead>
           <tr className="border-b border-border bg-muted/50">
-            <th className="whitespace-nowrap px-3 py-2.5 text-left text-xs font-semibold text-muted-foreground">Team</th>
-            <th className="whitespace-nowrap px-3 py-2.5 text-right text-xs font-semibold text-muted-foreground">Players</th>
-            <th className="whitespace-nowrap px-3 py-2.5 text-right text-xs font-semibold text-muted-foreground">AB</th>
-            <th className="whitespace-nowrap px-3 py-2.5 text-right text-xs font-semibold text-muted-foreground">H</th>
-            <th className="whitespace-nowrap px-3 py-2.5 text-right text-xs font-semibold text-primary">AVG</th>
-            <th className="whitespace-nowrap px-3 py-2.5 text-right text-xs font-semibold text-muted-foreground">HR</th>
-            <th className="whitespace-nowrap px-3 py-2.5 text-right text-xs font-semibold text-muted-foreground">RBI</th>
-            <th className="hidden whitespace-nowrap px-3 py-2.5 text-right text-xs font-semibold text-muted-foreground sm:table-cell">R</th>
-            <th className="hidden whitespace-nowrap px-3 py-2.5 text-right text-xs font-semibold text-muted-foreground sm:table-cell">BB</th>
-            <th className="hidden whitespace-nowrap px-3 py-2.5 text-right text-xs font-semibold text-muted-foreground md:table-cell">K</th>
-            <th className="hidden whitespace-nowrap px-3 py-2.5 text-right text-xs font-semibold text-muted-foreground md:table-cell">SB</th>
-            <th className="whitespace-nowrap px-3 py-2.5 text-right text-xs font-semibold text-muted-foreground">IP</th>
-            <th className="whitespace-nowrap px-3 py-2.5 text-right text-xs font-semibold text-primary">ERA</th>
-            <th className="hidden whitespace-nowrap px-3 py-2.5 text-right text-xs font-semibold text-muted-foreground lg:table-cell">E</th>
+            <SortTh label="Team"    col="name"         active={sortKey === "name"}         dir={sortDir} onClick={handleSort} align="left" />
+            {th("Players", "player_count")}
+            {th("AB",  "at_bats")}
+            {th("H",   "hits")}
+            {th("AVG", "avg")}
+            {th("HR",  "home_runs")}
+            {th("RBI", "rbi")}
+            {th("R",   "runs",          "hidden sm:table-cell")}
+            {th("BB",  "walks",         "hidden sm:table-cell")}
+            {th("K",   "strikeouts_bat","hidden md:table-cell")}
+            {th("SB",  "stolen_bases",  "hidden md:table-cell")}
+            {th("IP",  "innings_pitched")}
+            {th("ERA", "era")}
+            {th("E",   "errors",        "hidden lg:table-cell")}
           </tr>
         </thead>
         <tbody className="divide-y divide-border">
-          {rows.map((r) => (
+          {sorted.map((r) => (
             <tr key={r.team_id} className="hover:bg-muted/20 transition-colors">
               <td className="px-3 py-2.5 font-medium">{r.team_name}</td>
               <td className="px-3 py-2.5 text-right tabular-nums">{r.player_count}</td>
               <td className="px-3 py-2.5 text-right tabular-nums">{r.at_bats}</td>
               <td className="px-3 py-2.5 text-right tabular-nums">{r.hits}</td>
-              <td className="px-3 py-2.5 text-right tabular-nums font-semibold text-primary">
+              <td className={`px-3 py-2.5 text-right tabular-nums font-semibold ${sortKey === "avg" ? "text-primary" : ""}`}>
                 {fmtAvg(r.hits, r.at_bats)}
               </td>
               <td className="px-3 py-2.5 text-right tabular-nums">{r.home_runs}</td>
@@ -179,7 +368,7 @@ function TeamStatsTable({ rows }: { rows: TeamStat[] }) {
               <td className="hidden px-3 py-2.5 text-right tabular-nums md:table-cell">{r.strikeouts_bat}</td>
               <td className="hidden px-3 py-2.5 text-right tabular-nums md:table-cell">{r.stolen_bases}</td>
               <td className="px-3 py-2.5 text-right tabular-nums">{r.innings_pitched}</td>
-              <td className="px-3 py-2.5 text-right tabular-nums font-semibold text-primary">
+              <td className={`px-3 py-2.5 text-right tabular-nums font-semibold ${sortKey === "era" ? "text-primary" : ""}`}>
                 {fmtEra(r.earned_runs, r.innings_pitched)}
               </td>
               <td className="hidden px-3 py-2.5 text-right tabular-nums lg:table-cell">{r.errors}</td>
@@ -201,17 +390,15 @@ type Props = {
 };
 
 export function StatsBrowser({ aggregated, teams, rosters, players }: Props) {
-  const [view,          setView]          = useState<View>("player");
-  const [teamFilter,    setTeamFilter]    = useState<string>("all");
-  const [importOpen,    setImportOpen]    = useState(false);
+  const [view,       setView]       = useState<View>("player");
+  const [teamFilter, setTeamFilter] = useState<string>("all");
+  const [importOpen, setImportOpen] = useState(false);
 
-  // ── Player view rows ────────────────────────────────────────────────────────
   const playerRows = useMemo(() => {
     if (teamFilter === "all") return aggregated;
     return aggregated.filter((r) => r.team_id === teamFilter);
   }, [aggregated, teamFilter]);
 
-  // ── Team view rows ──────────────────────────────────────────────────────────
   const teamRows = useMemo<TeamStat[]>(() => {
     const map = new Map<string, TeamStat>();
     for (const r of aggregated) {
@@ -252,16 +439,15 @@ export function StatsBrowser({ aggregated, teams, rosters, players }: Props) {
       existing.errors          += r.errors;
       map.set(r.team_id, existing);
     }
-    return Array.from(map.values()).sort((a, b) => a.team_name.localeCompare(b.team_name));
+    return Array.from(map.values());
   }, [aggregated]);
 
-  const totalPlayers = view === "player" ? playerRows.length : teamRows.length;
+  const totalCount = view === "player" ? playerRows.length : teamRows.length;
 
   return (
     <div className="flex flex-col gap-6">
       {/* ── Toolbar ──────────────────────────────────────────────────────── */}
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-        {/* View toggle */}
         <div className="flex items-center gap-1 rounded-lg border border-border bg-muted/30 p-1">
           <button
             onClick={() => setView("player")}
@@ -287,7 +473,6 @@ export function StatsBrowser({ aggregated, teams, rosters, players }: Props) {
           </button>
         </div>
 
-        {/* Right side: team filter (player view only) + import */}
         <div className="flex items-center gap-2">
           {view === "player" && teams.length > 0 && (
             <select
@@ -301,7 +486,6 @@ export function StatsBrowser({ aggregated, teams, rosters, players }: Props) {
               ))}
             </select>
           )}
-
           <Button variant="outline" onClick={() => setImportOpen(true)}>
             <Download className="h-4 w-4" />
             Import from GameChanger
@@ -312,7 +496,10 @@ export function StatsBrowser({ aggregated, teams, rosters, players }: Props) {
       {/* ── Row count ────────────────────────────────────────────────────── */}
       <div className="flex items-center gap-2">
         <Badge variant="muted" className="text-xs">
-          {totalPlayers} {view === "player" ? `player${totalPlayers !== 1 ? "s" : ""}` : `team${totalPlayers !== 1 ? "s" : ""}`}
+          {totalCount}{" "}
+          {view === "player"
+            ? `player${totalCount !== 1 ? "s" : ""}`
+            : `team${totalCount !== 1 ? "s" : ""}`}
         </Badge>
         {aggregated.length === 0 && (
           <span className="text-xs text-muted-foreground">
@@ -324,10 +511,9 @@ export function StatsBrowser({ aggregated, teams, rosters, players }: Props) {
       {/* ── Table ────────────────────────────────────────────────────────── */}
       {view === "player"
         ? <PlayerStatsTable rows={playerRows} />
-        : <TeamStatsTable   rows={teamRows} />
+        : <TeamStatsTable   rows={teamRows}   />
       }
 
-      {/* ── Import modal ─────────────────────────────────────────────────── */}
       <GcStatsImportModal
         teams={teams}
         rosters={rosters}
