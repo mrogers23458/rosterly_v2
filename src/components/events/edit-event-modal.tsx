@@ -1,8 +1,8 @@
 "use client";
 
-import { CheckCircle2, Loader2, RefreshCw } from "lucide-react";
+import { Loader2, RefreshCw } from "lucide-react";
 import { useRouter } from "next/navigation";
-import { useEffect, useState, useTransition } from "react";
+import { useEffect, useRef, useState, useTransition } from "react";
 import { updateEvent } from "@/app/actions/events";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
@@ -45,12 +45,16 @@ export function EditEventModal({ event, open, onOpenChange, teams, rosters, line
   const [teamId,     setTeamId]   = useState(event.team_id   ?? "");
   const [rosterId,   setRosterId] = useState(event.roster_id ?? "");
   const [lineupId,   setLineupId] = useState(event.lineup_id ?? "");
-  const [done,       setDone]     = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [isPending,  startTransition] = useTransition();
 
+  // Only reset form when the modal opens (not on every event prop change, which
+  // would re-populate the form mid-edit when router.refresh() updates the event).
+  const prevOpenRef = useRef(false);
   useEffect(() => {
-    if (!open) return;
+    const wasOpen = prevOpenRef.current;
+    prevOpenRef.current = open;
+    if (!open || wasOpen) return; // only run on open → true transition
     setStep(isRecurring ? "scope" : "form");
     setScope("this");
     setType(event.type);
@@ -65,9 +69,8 @@ export function EditEventModal({ event, open, onOpenChange, teams, rosters, line
     setTeamId(event.team_id     ?? "");
     setRosterId(event.roster_id ?? "");
     setLineupId(event.lineup_id ?? "");
-    setDone(false);
     setSubmitError(null);
-  }, [open, event, isRecurring]);
+  }, [open]); // eslint-disable-line react-hooks/exhaustive-deps
 
   function generateTitle() {
     const meta = EVENT_TYPE_META[type];
@@ -116,7 +119,9 @@ export function EditEventModal({ event, open, onOpenChange, teams, rosters, line
         return;
       }
 
-      setDone(true);
+      // Close immediately — no secondary "Done" step to avoid the modal
+      // re-opening due to router.refresh() updating the event prop.
+      onOpenChange(false);
       router.refresh();
     });
   }
@@ -130,16 +135,7 @@ export function EditEventModal({ event, open, onOpenChange, teams, rosters, line
         </DialogHeader>
 
         <DialogBody>
-          {done ? (
-            <div className="flex flex-col items-center gap-3 py-8 text-center">
-              <CheckCircle2 className="h-10 w-10 text-green-500" />
-              <p className="font-semibold">
-                {scope === "all" ? "All events in the series updated!" : "Event updated!"}
-              </p>
-              <Button onClick={() => onOpenChange(false)}>Done</Button>
-            </div>
-
-          ) : step === "scope" ? (
+          {step === "scope" ? (
             /* ── Scope selector for recurring events ─────────────────── */
             <div className="flex flex-col gap-5">
               <div className="flex items-center gap-2 rounded-lg border border-border bg-muted/40 px-3 py-2 text-sm text-muted-foreground">
