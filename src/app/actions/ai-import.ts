@@ -416,6 +416,15 @@ export async function importExtractedData(
 
     if (error || !team) return { error: `Failed to create team: ${error?.message}` };
     teamId = team.id;
+
+    // Seed the importer as owner so permissions work correctly.
+    await supabase.from("team_members").insert({
+      team_id:    team.id,
+      user_id:    user.id,
+      role:       "owner",
+      invited_by: null,
+    });
+
     revalidatePath("/teams");
   }
 

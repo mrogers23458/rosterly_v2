@@ -1,6 +1,6 @@
 "use client";
 
-import { Archive, ArchiveRestore, Pencil, Trash2 } from "lucide-react";
+import { Pencil, Trash2, UserCheck, UserX } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
 import { setPlayerIsActive } from "@/app/actions/players";
@@ -55,14 +55,14 @@ export function PlayerRowActions({ player, teamId, rosterId, userRole }: Props) 
             variant="ghost" size="icon"
             className="h-7 w-7 text-muted-foreground hover:text-foreground"
             onClick={handleActiveToggle} disabled={isPending}
-            title={player.is_active ? "Mark inactive" : "Mark active"}
+            title={player.is_active ? "Deactivate player" : "Reactivate player"}
           >
             {player.is_active ? (
-              <Archive className="h-3.5 w-3.5" />
+              <UserX className="h-3.5 w-3.5" />
             ) : (
-              <ArchiveRestore className="h-3.5 w-3.5" />
+              <UserCheck className="h-3.5 w-3.5" />
             )}
-            <span className="sr-only">{player.is_active ? "Archive" : "Restore"}</span>
+            <span className="sr-only">{player.is_active ? "Deactivate" : "Reactivate"}</span>
           </Button>
         )}
 

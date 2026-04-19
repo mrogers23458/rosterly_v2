@@ -191,9 +191,7 @@ function PlayerRow({ player, teamId, rosterId, userRole }: { player: Player; tea
         ) : null}
       </td>
       <td className="hidden px-4 py-3 text-muted-foreground lg:table-cell">
-        {[player.bats ? `B: ${player.bats}` : null, player.throws ? `T: ${player.throws}` : null]
-          .filter(Boolean)
-          .join(" / ") || "—"}
+        {[player.bats, player.throws].filter(Boolean).join("/") || "—"}
       </td>
       <td className="px-4 py-3">
         <Badge variant={player.is_active ? "success" : "muted"}>

@@ -126,6 +126,7 @@ export function AddPlayerModal(props: AddPlayerModalProps) {
   const [dob, setDob]                   = useState("");
   const [primaryPos, setPrimaryPos]     = useState<string[]>([]);
   const [secondaryPos, setSecondaryPos] = useState<string[]>([]);
+  const [justAdded, setJustAdded]       = useState(false);
 
   const dir = isDirectoryProps(props);
   const [dirTeamKey, setDirTeamKey]     = useState<string>(""); // team id or "__none__"
@@ -151,27 +152,31 @@ export function AddPlayerModal(props: AddPlayerModalProps) {
 
   const onOpenChangeProp = props.onOpenChange;
 
+  function resetFormFields() {
+    setFormKey((k) => k + 1);
+    setIsActive(true);
+    setDob("");
+    setPrimaryPos([]);
+    setSecondaryPos([]);
+    if (dir) {
+      setDirTeamKey("");
+      setDirRosterId("");
+    }
+  }
+
   useEffect(() => {
     if (!state.success) return;
-    const t = window.setTimeout(() => {
-      router.refresh();
-      if (isControlled) onOpenChangeProp?.(false);
-      else setInternalOpen(false);
-    }, 0);
+    router.refresh();
+    resetFormFields();
+    setJustAdded(true);
+    const t = window.setTimeout(() => setJustAdded(false), 3000);
     return () => window.clearTimeout(t);
-  }, [state.success, router, isControlled, onOpenChangeProp]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [state.success, router]);
 
   function handleOpenChange(next: boolean) {
     if (next) {
-      setFormKey((k) => k + 1);
-      setIsActive(true);
-      setDob("");
-      setPrimaryPos([]);
-      setSecondaryPos([]);
-      if (dir) {
-        setDirTeamKey("");
-        setDirRosterId("");
-      }
+      resetFormFields();
     }
     if (isControlled) onOpenChangeProp?.(next);
     else setInternalOpen(next);
@@ -216,6 +221,12 @@ export function AddPlayerModal(props: AddPlayerModalProps) {
             {state.error && (
               <Alert variant="destructive">
                 <AlertDescription>{state.error}</AlertDescription>
+              </Alert>
+            )}
+
+            {justAdded && (
+              <Alert variant="default" className="border-green-500/50 bg-green-50 text-green-800">
+                <AlertDescription>Player added! Fill in the details below to add another.</AlertDescription>
               </Alert>
             )}
 
@@ -412,7 +423,7 @@ export function AddPlayerModal(props: AddPlayerModalProps) {
                 className="flex-1"
                 onClick={() => handleOpenChange(false)}
               >
-                Cancel
+                {justAdded ? "Done" : "Cancel"}
               </Button>
               <Button
                 type="submit"

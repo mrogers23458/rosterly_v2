@@ -11,7 +11,7 @@ import {
   DialogDescription, DialogHeader, DialogTitle,
 } from "@/components/ui/dialog";
 import { EventFormFields } from "@/components/events/event-form-fields";
-import type { EventType, RecurrenceType } from "@/lib/constants/events";
+import { EVENT_TYPE_META, type EventType, type RecurrenceType } from "@/lib/constants/events";
 import type { GameLineup, Roster, Team } from "@/lib/constants/teams";
 
 type Props = {
@@ -70,9 +70,23 @@ export function CreateEventModal({
     onOpenChange(v);
   }
 
+  function generateTitle() {
+    const meta = EVENT_TYPE_META[type];
+    const label = meta?.label ?? type;
+    if ((type === "game" || type === "scrimmage") && opponent.trim()) {
+      return `${label} vs. ${opponent.trim()}`;
+    }
+    if (eventDate) {
+      const d = new Date(eventDate + "T00:00:00");
+      const dateStr = d.toLocaleDateString("en-US", { month: "short", day: "numeric" });
+      return `${label} – ${dateStr}`;
+    }
+    return label;
+  }
+
   function handleSubmit() {
-    if (!title.trim() || !eventDate) {
-      setSubmitError("Title and date are required.");
+    if (!eventDate) {
+      setSubmitError("Date is required.");
       return;
     }
     if (recurrenceType && !recurrenceEndDate) {
@@ -91,7 +105,7 @@ export function CreateEventModal({
         roster_id:  rosterId || null,
         lineup_id:  lineupId || null,
         type,
-        title,
+        title:      title.trim() || generateTitle(),
         opponent:   opponent  || null,
         event_date: eventDate,
         start_time: startTime || null,

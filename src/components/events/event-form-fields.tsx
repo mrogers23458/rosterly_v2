@@ -103,17 +103,15 @@ export function EventFormFields({
 
       {/* Title */}
       <div className="flex flex-col gap-1.5">
-        <Label htmlFor="event-title">
-          Title <span className="text-destructive">*</span>
-        </Label>
+        <Label htmlFor="event-title">Title</Label>
         <Input
           id="event-title"
           placeholder={
-            type === "game"       ? "e.g. vs. Blue Jays" :
-            type === "practice"   ? "e.g. Thursday Practice" :
-            type === "scrimmage"  ? "e.g. Scrimmage vs. Tigers" :
-            type === "fundraiser" ? "e.g. Spring Bake Sale" :
-                                    "Event name"
+            type === "game"       ? "Auto-generated if blank (e.g. Game vs. Blue Jays)" :
+            type === "practice"   ? "Auto-generated if blank (e.g. Practice – Apr 18)" :
+            type === "scrimmage"  ? "Auto-generated if blank (e.g. Scrimmage vs. Tigers)" :
+            type === "fundraiser" ? "Auto-generated if blank (e.g. Fundraiser – Apr 18)" :
+                                    "Auto-generated if blank"
           }
           value={title}
           onChange={(e) => onTitle(e.target.value)}

@@ -68,6 +68,15 @@ export async function importTeam(
     .single();
 
   if (error) return { error: error.message };
+
+  // Seed the importer as owner so permissions work correctly.
+  await supabase.from("team_members").insert({
+    team_id:    data.id,
+    user_id:    user.id,
+    role:       "owner",
+    invited_by: null,
+  });
+
   revalidatePath("/teams");
   return { data: { id: data.id } };
 }

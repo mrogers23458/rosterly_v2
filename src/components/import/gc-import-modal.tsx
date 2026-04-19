@@ -712,7 +712,7 @@ export function GcImportModal({
       )}
 
       <Dialog open={open} onOpenChange={handleOpen}>
-        <DialogContent className="max-h-[90vh] overflow-y-auto">
+        <DialogContent className="flex max-h-[90vh] flex-col overflow-hidden">
           <DialogHeader>
             <DialogTitle>Import from GameChanger</DialogTitle>
             <DialogDescription>
@@ -723,7 +723,7 @@ export function GcImportModal({
             </div>
           </DialogHeader>
 
-          <div className="px-6 pb-6">
+          <div className="flex-1 overflow-y-auto px-6 pb-6">
             {step === "upload" && (
               <UploadStep onParsed={handleParsed} />
             )}

@@ -28,7 +28,7 @@ export const AGE_GROUPS = [
 
 export type AgeGroup = (typeof AGE_GROUPS)[number];
 
-export const POSITIONS = ["P", "C", "1B", "2B", "SS", "3B", "CF", "LF", "RF"] as const;
+export const POSITIONS = ["P", "C", "1B", "2B", "SS", "3B", "CF", "LF", "RF", "LC", "RC", "EF"] as const;
 export type Position = (typeof POSITIONS)[number];
 
 /** Positions available in a lineup inning cell (field positions + Bench) */
