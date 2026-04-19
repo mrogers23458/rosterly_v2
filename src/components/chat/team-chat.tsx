@@ -233,8 +233,9 @@ export function TeamChat({ teamId, currentUserId, initialMessages }: Props) {
         setInput(body);
       } else {
         // Replace the optimistic placeholder with the real persisted message
+        const saved = res.data as TeamMessage;
         setMessages((prev) =>
-          prev.map((m) => (m.id === optimistic.id ? res.data : m)),
+          prev.map((m) => (m.id === optimistic.id ? saved : m)),
         );
         // Push to every other subscriber via Broadcast
         channelRef.current?.send({
