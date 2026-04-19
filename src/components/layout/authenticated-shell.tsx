@@ -1,6 +1,7 @@
 "use client";
 
 import {
+  BarChart3,
   CalendarDays,
   ClipboardList,
   LayoutDashboard,
@@ -61,6 +62,12 @@ const navItems: NavItem[] = [
     href: "/events",
     icon: CalendarDays,
     matchFn: (p) => p === "/events" || p.startsWith("/events/"),
+  },
+  {
+    label: "Stats",
+    href: "/stats",
+    icon: BarChart3,
+    matchFn: (p) => p === "/stats" || p.startsWith("/stats/"),
   },
 ];
 

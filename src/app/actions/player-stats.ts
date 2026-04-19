@@ -161,6 +161,83 @@ export async function updatePlayerGameStat(
   return { data: data as PlayerGameStat };
 }
 
+// ─── Bulk GC stats import ─────────────────────────────────────────────────────
+
+export type BulkStatEntry = {
+  player_id:  string;
+  notes:      string | null;
+  at_bats:         number;
+  hits:            number;
+  doubles:         number;
+  triples:         number;
+  home_runs:       number;
+  rbi:             number;
+  walks:           number;
+  strikeouts_bat:  number;
+  stolen_bases:    number;
+  runs:            number;
+  hit_by_pitch:    number;
+  innings_pitched: number;
+  hits_allowed:    number;
+  runs_allowed:    number;
+  earned_runs:     number;
+  walks_allowed:   number;
+  strikeouts_pit:  number;
+  wild_pitches:    number;
+  hit_batters:     number;
+  putouts:         number;
+  assists:         number;
+  errors:          number;
+};
+
+export async function bulkImportGCStats(
+  entries: BulkStatEntry[],
+): Promise<{ count: number; error?: string }> {
+  if (entries.length === 0) return { count: 0 };
+
+  const { supabase, user } = await getClient();
+  if (!user) return { count: 0, error: "You must be signed in." };
+
+  const rows = entries.map((e) => ({
+    user_id:         user.id,
+    player_id:       e.player_id,
+    source:          "gamechanger",
+    lineup_id:       null,
+    game_date:       null,
+    opponent:        null,
+    notes:           e.notes,
+    at_bats:         e.at_bats,
+    hits:            e.hits,
+    doubles:         e.doubles,
+    triples:         e.triples,
+    home_runs:       e.home_runs,
+    rbi:             e.rbi,
+    walks:           e.walks,
+    strikeouts_bat:  e.strikeouts_bat,
+    stolen_bases:    e.stolen_bases,
+    runs:            e.runs,
+    hit_by_pitch:    e.hit_by_pitch,
+    innings_pitched: e.innings_pitched,
+    hits_allowed:    e.hits_allowed,
+    runs_allowed:    e.runs_allowed,
+    earned_runs:     e.earned_runs,
+    walks_allowed:   e.walks_allowed,
+    strikeouts_pit:  e.strikeouts_pit,
+    wild_pitches:    e.wild_pitches,
+    hit_batters:     e.hit_batters,
+    putouts:         e.putouts,
+    assists:         e.assists,
+    errors:          e.errors,
+  }));
+
+  const { error } = await supabase.from("player_game_stats").insert(rows);
+  if (error) return { count: 0, error: error.message };
+
+  revalidatePath("/stats");
+  revalidatePath("/players");
+  return { count: entries.length };
+}
+
 // ─── Delete ───────────────────────────────────────────────────────────────────
 
 export async function deletePlayerGameStat(
