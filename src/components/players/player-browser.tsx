@@ -227,13 +227,11 @@ export function PlayerBrowser({ players, rosters, teams, teamRoles }: Props) {
                 key={p.id}
                 className="group relative flex h-full min-h-0 flex-col gap-2 rounded-lg border border-border bg-card p-4 transition-all duration-150 hover:-translate-y-0.5 hover:border-primary/30 hover:shadow-md"
               >
-                {canLink && (
-                  <Link
-                    href={`/rosters/${p.teamId}/${p.roster_id}`}
-                    className="absolute inset-0 rounded-lg focus:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
-                    aria-label={`Open ${displayName}`}
-                  />
-                )}
+                <Link
+                  href={`/players/${p.id}`}
+                  className="absolute inset-0 rounded-lg focus:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+                  aria-label={`Open ${displayName}`}
+                />
 
                 <div className="flex shrink-0 items-start justify-between gap-2">
                   <h3 className="text-sm font-semibold leading-snug group-hover:text-primary transition-colors">
@@ -261,11 +259,6 @@ export function PlayerBrowser({ players, rosters, teams, teamRoles }: Props) {
                 </div>
                 <p className="shrink-0 text-xs text-muted-foreground">{p.rosterName}</p>
                 <div className="min-h-0 flex-1" aria-hidden />
-                {!canLink && (
-                  <p className="mt-auto shrink-0 text-[11px] text-muted-foreground/60 italic">
-                    Assign roster to a team to open roster page
-                  </p>
-                )}
               </div>
             );
           })}

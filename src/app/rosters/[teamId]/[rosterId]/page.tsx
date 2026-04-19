@@ -175,7 +175,11 @@ function PlayerRow({ player, teamId, rosterId, userRole }: { player: Player; tea
       <td className="px-4 py-3 text-muted-foreground">
         {player.jersey_number ?? "—"}
       </td>
-      <td className="px-4 py-3 font-medium">{displayName}</td>
+      <td className="px-4 py-3 font-medium">
+          <a href={`/players/${player.id}`} className="hover:text-primary transition-colors hover:underline">
+            {displayName}
+          </a>
+        </td>
       <td className="hidden px-4 py-3 text-muted-foreground sm:table-cell">
         {age !== null ? age : "—"}
       </td>
