@@ -1,0 +1,104 @@
+"use server";
+
+import { cookies } from "next/headers";
+import { revalidatePath } from "next/cache";
+import { createClient } from "@/utils/supabase/server";
+import {
+  unitToMinutes,
+  type AppNotification,
+  type EventReminder,
+  type ReminderDraft,
+} from "@/lib/constants/reminders";
+
+// ── Save reminders for an event (replace-all strategy) ───────────────────────
+
+export async function saveEventReminders(
+  eventId:  string,
+  drafts:   ReminderDraft[],
+): Promise<{ error: string | null }> {
+  try {
+    const cookieStore = await cookies();
+    const supabase    = createClient(cookieStore);
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return { error: "Not authenticated." };
+
+    // Build flat rows: one row per (channel, minutesBefore) pair
+    const rows = drafts.flatMap((d) => {
+      const minutes = unitToMinutes(d.amount, d.unit);
+      return d.channels.map((channel) => ({
+        event_id:       eventId,
+        user_id:        user.id,
+        channel,
+        minutes_before: minutes,
+      }));
+    });
+
+    // Delete existing reminders for this event first, then insert new ones
+    const { error: delErr } = await supabase
+      .from("event_reminders")
+      .delete()
+      .eq("event_id", eventId)
+      .eq("user_id", user.id);
+
+    if (delErr) return { error: delErr.message };
+
+    if (rows.length > 0) {
+      const { error: insErr } = await supabase
+        .from("event_reminders")
+        .insert(rows);
+      if (insErr) return { error: insErr.message };
+    }
+
+    revalidatePath(`/events/${eventId}`);
+    return { error: null };
+  } catch (e) {
+    return { error: e instanceof Error ? e.message : "Unknown error" };
+  }
+}
+
+// ── Load reminders for an event ───────────────────────────────────────────────
+
+export async function getEventReminders(
+  eventId: string,
+): Promise<{ data: EventReminder[]; error: string | null }> {
+  try {
+    const cookieStore = await cookies();
+    const supabase    = createClient(cookieStore);
+
+    const { data, error } = await supabase
+      .from("event_reminders")
+      .select("*")
+      .eq("event_id", eventId)
+      .order("minutes_before", { ascending: true });
+
+    if (error) return { data: [], error: error.message };
+    return { data: (data ?? []) as EventReminder[], error: null };
+  } catch (e) {
+    return { data: [], error: e instanceof Error ? e.message : "Unknown error" };
+  }
+}
+
+// ── Mark in-app notifications as read ────────────────────────────────────────
+
+export async function markNotificationsRead(
+  ids: string[],
+): Promise<{ error: string | null }> {
+  try {
+    const cookieStore = await cookies();
+    const supabase    = createClient(cookieStore);
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return { error: "Not authenticated." };
+
+    const { error } = await supabase
+      .from("notifications")
+      .update({ read_at: new Date().toISOString() })
+      .in("id", ids)
+      .eq("user_id", user.id);
+
+    revalidatePath("/notifications");
+    return { error: error?.message ?? null };
+  } catch (e) {
+    return { error: e instanceof Error ? e.message : "Unknown error" };
+  }
+}
+

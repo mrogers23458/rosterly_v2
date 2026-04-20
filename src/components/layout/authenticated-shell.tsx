@@ -16,6 +16,7 @@ import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useState } from "react";
 import { RosterlyLogo } from "@/components/branding/rosterly-logo";
+import { NotificationsBell } from "@/components/layout/notifications-bell";
 import { cn } from "@/lib/utils";
 import { createClient } from "@/utils/supabase/client";
 
@@ -113,6 +114,10 @@ function SidebarContents({
 
       {/* Logout */}
       <div className="border-t border-border p-2">
+        <div className="mb-1 flex items-center justify-between px-3 py-1">
+          <span className="text-xs text-muted-foreground">Notifications</span>
+          <NotificationsBell />
+        </div>
         <button
           onClick={onLogout}
           className="flex w-full items-center gap-3 rounded-md px-3 py-2.5 text-sm font-medium text-foreground/70 transition-colors hover:bg-muted hover:text-foreground"
@@ -190,6 +195,9 @@ export function AuthenticatedShell({ children }: { children: React.ReactNode }) 
           </button>
           <RosterlyLogo size={30} />
           <span className="text-base font-bold text-primary">Rosterly</span>
+          <div className="ml-auto">
+            <NotificationsBell />
+          </div>
         </header>
 
         <main className="flex-1">{children}</main>

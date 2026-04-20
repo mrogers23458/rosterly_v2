@@ -4,6 +4,7 @@ import { cookies } from "next/headers";
 import { notFound } from "next/navigation";
 import { createClient } from "@/utils/supabase/server";
 import { LineupDetailActions } from "@/components/lineups/lineup-detail-actions";
+import { LineupGamedayBar } from "@/components/lineups/lineup-gameday-bar";
 import { LineupViewTable } from "@/components/lineups/lineup-view-table";
 import { Badge } from "@/components/ui/badge";
 import { getUserTeamRole } from "@/lib/permissions";
@@ -160,6 +161,13 @@ export default async function LineupDetailPage({ params }: Props) {
           />
         </div>
       </div>
+
+      {/* Gameday bar — print + share */}
+      <LineupGamedayBar
+        lineupId={lineup.id}
+        shareToken={lineup.share_token}
+        userRole={userRole}
+      />
 
       {/* Lineup table */}
       <div>

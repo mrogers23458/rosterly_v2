@@ -90,6 +90,7 @@ export type GameLineup = {
   inning_count: number;
   notes: string | null;
   is_archived: boolean;
+  share_token: string | null;
   created_at: string;
   updated_at: string;
 };

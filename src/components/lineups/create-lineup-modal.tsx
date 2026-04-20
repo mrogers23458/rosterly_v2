@@ -1,7 +1,7 @@
 "use client";
 
 import {
-  AlertTriangle, CheckCircle2, ClipboardList, Copy, LayoutList, Loader2, Search,
+  AlertTriangle, CalendarDays, Check, CheckCircle2, ClipboardList, Copy, LayoutList, Loader2, Search,
 } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useState, useTransition } from "react";
@@ -25,9 +25,10 @@ import {
   EntryDraft, LineupTable, PickRosterStep, ValidationIssue, ValidationWarning,
   autofillLineup, entryFromPlayer, validateEntries,
 } from "@/components/lineups/lineup-table";
+import { CreateEventModal } from "@/components/events/create-event-modal";
 import { CreateRosterModal } from "@/components/rosters/create-roster-modal";
 import { cn } from "@/lib/utils";
-import type { Player, Roster, Team } from "@/lib/constants/teams";
+import type { GameLineup, Player, Roster, Team } from "@/lib/constants/teams";
 
 export type { EntryDraft };
 
@@ -344,6 +345,11 @@ export function CreateLineupModal({
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [isPending,   startTransition] = useTransition();
 
+  // "Create event after saving" feature
+  const [createEventAfter, setCreateEventAfter] = useState(false);
+  const [savedLineupObj,   setSavedLineupObj]   = useState<GameLineup | null>(null);
+  const [eventModalOpen,   setEventModalOpen]   = useState(false);
+
   // Derived rosters for the currently selected team
   const activeRostersForTeam = useMemo(
     () => selectedTeamId
@@ -367,6 +373,9 @@ export function CreateLineupModal({
     setSelectedRosterId(null);
     setInningCount(6);
     setEntries([]); setEntriesVersion(0); setIssues([]); setSubmitError(null);
+    setCreateEventAfter(false);
+    setSavedLineupObj(null);
+    setEventModalOpen(false);
   }
 
   function handleOpen(v: boolean) {
@@ -439,6 +448,25 @@ export function CreateLineupModal({
       });
 
       if (result.error) { setSubmitError(result.error); setView("form"); return; }
+
+      // Build a minimal lineup object so the event modal can reference it
+      if (result.lineupId) {
+        setSavedLineupObj({
+          id:           result.lineupId,
+          user_id:      "",
+          team_id:      selectedTeamId,
+          roster_id:    selectedRosterId,
+          name,
+          game_date:    gameDate || null,
+          inning_count: inningCount,
+          notes:        notes || null,
+          is_archived:  false,
+          share_token:  null,
+          created_at:   new Date().toISOString(),
+          updated_at:   new Date().toISOString(),
+        });
+      }
+
       setView("done");
       router.refresh();
     });
@@ -536,9 +564,30 @@ export function CreateLineupModal({
                     {selectedRosterName && <> · {selectedRosterName}</>}
                   </p>
                 </div>
-                <Button size="lg" className="w-full" onClick={() => handleOpen(false)}>
-                  Done
-                </Button>
+                {createEventAfter ? (
+                  <div className="flex w-full flex-col gap-2.5">
+                    <Button
+                      size="lg"
+                      className="w-full gap-2"
+                      onClick={() => setEventModalOpen(true)}
+                    >
+                      <CalendarDays className="h-4 w-4" />
+                      Create game event
+                    </Button>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="w-full"
+                      onClick={() => handleOpen(false)}
+                    >
+                      Skip — done
+                    </Button>
+                  </div>
+                ) : (
+                  <Button size="lg" className="w-full" onClick={() => handleOpen(false)}>
+                    Done
+                  </Button>
+                )}
               </div>
             )}
 
@@ -602,6 +651,31 @@ export function CreateLineupModal({
                   />
                 </div>
 
+                {/* Create game event toggle */}
+                <button
+                  type="button"
+                  onClick={() => setCreateEventAfter((v) => !v)}
+                  className={cn(
+                    "flex w-full cursor-pointer items-start gap-3 rounded-lg border p-4 text-left transition-colors",
+                    createEventAfter
+                      ? "border-primary/40 bg-primary/5"
+                      : "border-border bg-muted/20 hover:border-primary/20 hover:bg-muted/40",
+                  )}
+                >
+                  <div className={cn(
+                    "mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded border-2 transition-colors",
+                    createEventAfter ? "border-primary bg-primary" : "border-input bg-background",
+                  )}>
+                    {createEventAfter && <Check className="h-3 w-3 text-white" />}
+                  </div>
+                  <div>
+                    <p className="text-sm font-medium">Also create a game event for this lineup</p>
+                    <p className="mt-0.5 text-xs text-muted-foreground">
+                      After saving, opens the event form pre-filled with this lineup&apos;s team, date, and roster.
+                    </p>
+                  </div>
+                </button>
+
                 <div className="flex flex-col-reverse gap-3 sm:flex-row">
                   <Button
                     type="button"
@@ -627,6 +701,25 @@ export function CreateLineupModal({
           </DialogBody>
         </DialogContent>
       </Dialog>
+
+      {/* Event modal — opens after lineup is saved when toggle is on */}
+      {savedLineupObj && (
+        <CreateEventModal
+          open={eventModalOpen}
+          onOpenChange={(v) => {
+            setEventModalOpen(v);
+            // When the event modal closes, close the lineup modal too
+            if (!v) handleOpen(false);
+          }}
+          teams={activeTeams}
+          rosters={allRosters}
+          lineups={[savedLineupObj]}
+          defaultTeamId={selectedTeamId}
+          defaultLineupId={savedLineupObj.id}
+          defaultRosterId={selectedRosterId ?? ""}
+          defaultEventDate={gameDate}
+        />
+      )}
     </>
   );
 }

@@ -4,6 +4,8 @@ import { Loader2, RefreshCw } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState, useTransition } from "react";
 import { updateEvent } from "@/app/actions/events";
+import { getEventReminders, saveEventReminders } from "@/app/actions/reminders";
+import { remindersToDrafts } from "@/lib/constants/reminders";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import {
@@ -11,8 +13,10 @@ import {
   DialogDescription, DialogHeader, DialogTitle,
 } from "@/components/ui/dialog";
 import { EventFormFields } from "@/components/events/event-form-fields";
+import { EventReminderFields } from "@/components/events/event-reminder-fields";
 import type { TeamEvent, EventType } from "@/lib/constants/events";
 import { EVENT_TYPE_META } from "@/lib/constants/events";
+import type { ReminderDraft } from "@/lib/constants/reminders";
 import type { GameLineup, Roster, Team } from "@/lib/constants/teams";
 
 type Scope = "this" | "all";
@@ -30,7 +34,6 @@ export function EditEventModal({ event, open, onOpenChange, teams, rosters, line
   const router = useRouter();
   const isRecurring = Boolean(event.recurrence_group_id);
 
-  // "scope" step shown only for recurring events
   const [step, setStep]           = useState<"scope" | "form">(isRecurring ? "scope" : "form");
   const [scope, setScope]         = useState<Scope>("this");
   const [type,       setType]     = useState<EventType>(event.type);
@@ -48,13 +51,13 @@ export function EditEventModal({ event, open, onOpenChange, teams, rosters, line
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [isPending,  startTransition] = useTransition();
 
-  // Only reset form when the modal opens (not on every event prop change, which
-  // would re-populate the form mid-edit when router.refresh() updates the event).
+  const [reminders, setReminders] = useState<ReminderDraft[]>([]);
+
   const prevOpenRef = useRef(false);
   useEffect(() => {
     const wasOpen = prevOpenRef.current;
     prevOpenRef.current = open;
-    if (!open || wasOpen) return; // only run on open → true transition
+    if (!open || wasOpen) return;
     setStep(isRecurring ? "scope" : "form");
     setScope("this");
     setType(event.type);
@@ -70,6 +73,9 @@ export function EditEventModal({ event, open, onOpenChange, teams, rosters, line
     setRosterId(event.roster_id ?? "");
     setLineupId(event.lineup_id ?? "");
     setSubmitError(null);
+    getEventReminders(event.id).then(({ data }) => {
+      setReminders(remindersToDrafts(data));
+    });
   }, [open]); // eslint-disable-line react-hooks/exhaustive-deps
 
   function generateTitle() {
@@ -87,10 +93,7 @@ export function EditEventModal({ event, open, onOpenChange, teams, rosters, line
   }
 
   function handleSubmit() {
-    if (!eventDate) {
-      setSubmitError("Date is required.");
-      return;
-    }
+    if (!eventDate) { setSubmitError("Date is required."); return; }
 
     startTransition(async () => {
       setSubmitError(null);
@@ -119,8 +122,7 @@ export function EditEventModal({ event, open, onOpenChange, teams, rosters, line
         return;
       }
 
-      // Close immediately — no secondary "Done" step to avoid the modal
-      // re-opening due to router.refresh() updating the event prop.
+      await saveEventReminders(event.id, reminders);
       onOpenChange(false);
       router.refresh();
     });
@@ -136,29 +138,22 @@ export function EditEventModal({ event, open, onOpenChange, teams, rosters, line
 
         <DialogBody>
           {step === "scope" ? (
-            /* ── Scope selector for recurring events ─────────────────── */
             <div className="flex flex-col gap-5">
               <div className="flex items-center gap-2 rounded-lg border border-border bg-muted/40 px-3 py-2 text-sm text-muted-foreground">
                 <RefreshCw className="h-3.5 w-3.5 shrink-0" />
                 This is a recurring event. Which events do you want to edit?
               </div>
-
               <div className="flex flex-col gap-2">
                 {(["this", "all"] as Scope[]).map((s) => (
                   <label
                     key={s}
                     className={`flex cursor-pointer items-center gap-3 rounded-lg border px-4 py-3 transition-colors ${
-                      scope === s
-                        ? "border-primary bg-primary/5"
-                        : "border-border hover:border-primary/40"
+                      scope === s ? "border-primary bg-primary/5" : "border-border hover:border-primary/40"
                     }`}
                   >
                     <input
-                      type="radio"
-                      name="edit-scope"
-                      value={s}
-                      checked={scope === s}
-                      onChange={() => setScope(s)}
+                      type="radio" name="edit-scope" value={s}
+                      checked={scope === s} onChange={() => setScope(s)}
                       className="accent-primary"
                     />
                     <div>
@@ -174,7 +169,6 @@ export function EditEventModal({ event, open, onOpenChange, teams, rosters, line
                   </label>
                 ))}
               </div>
-
               <div className="flex justify-end gap-2">
                 <Button variant="outline" onClick={() => onOpenChange(false)}>Cancel</Button>
                 <Button onClick={() => setStep("form")}>Continue</Button>
@@ -182,17 +176,12 @@ export function EditEventModal({ event, open, onOpenChange, teams, rosters, line
             </div>
 
           ) : (
-            /* ── Edit form ────────────────────────────────────────────── */
             <div className="flex flex-col gap-5">
               {isRecurring && (
                 <div className="flex items-center gap-2 rounded-lg border border-border bg-muted/40 px-3 py-2 text-xs text-muted-foreground">
                   <RefreshCw className="h-3 w-3 shrink-0" />
                   Editing {scope === "all" ? "all events in this series" : "just this occurrence"}.
-                  <button
-                    type="button"
-                    className="ml-auto text-xs underline hover:no-underline"
-                    onClick={() => setStep("scope")}
-                  >
+                  <button type="button" className="ml-auto text-xs underline hover:no-underline" onClick={() => setStep("scope")}>
                     Change
                   </button>
                 </div>
@@ -211,15 +200,15 @@ export function EditEventModal({ event, open, onOpenChange, teams, rosters, line
                 teamId={teamId}       onTeamId={setTeamId}
                 rosterId={rosterId}   onRosterId={setRosterId}
                 lineupId={lineupId}   onLineupId={setLineupId}
-                recurrenceType={null}
-                recurrenceEndDate=""
-                onRecurrenceType={() => {}}
-                onRecurrenceEndDate={() => {}}
+                recurrenceType={null} recurrenceEndDate=""
+                onRecurrenceType={() => {}} onRecurrenceEndDate={() => {}}
                 showRecurrence={false}
-                teams={teams}
-                rosters={rosters}
-                lineups={lineups}
+                teams={teams} rosters={rosters} lineups={lineups}
               />
+
+              <div className="border-t border-border pt-4">
+                <EventReminderFields reminders={reminders} onChange={setReminders} />
+              </div>
 
               {submitError && (
                 <Alert variant="destructive">

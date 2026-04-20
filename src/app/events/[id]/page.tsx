@@ -6,15 +6,19 @@ import { cookies } from "next/headers";
 import { notFound } from "next/navigation";
 import { createClient } from "@/utils/supabase/server";
 import { EventDetailActions } from "@/components/events/event-detail-actions";
+import { EventAvailabilityPanel } from "@/components/events/event-availability-panel";
+import { EventRsvpPanel } from "@/components/events/event-rsvp-panel";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
 import { getUserTeamRole } from "@/lib/permissions";
 import type { TeamRole } from "@/lib/constants/roles";
 import {
   EVENT_TYPE_META,
+  type EventAvailability,
+  type EventRsvp,
   type TeamEvent,
 } from "@/lib/constants/events";
-import type { GameLineup, Roster, Team } from "@/lib/constants/teams";
+import type { GameLineup, Player, Roster, Team } from "@/lib/constants/teams";
 
 type Props = { params: Promise<{ id: string }> };
 
@@ -92,6 +96,45 @@ export default async function EventDetailPage({ params }: Props) {
   const userRole: TeamRole = (user && event.team_id)
     ? ((await getUserTeamRole(supabase, user.id, event.team_id)) ?? "viewer")
     : "viewer";
+
+  // Load roster players + availability for the availability panel
+  let rosterPlayers: Player[] = [];
+  let availability: EventAvailability[] = [];
+
+  if (event.roster_id) {
+    const { data: players } = await supabase
+      .from("players")
+      .select("*")
+      .eq("roster_id", event.roster_id)
+      .eq("is_active", true)
+      .order("last_name", { ascending: true });
+    rosterPlayers = (players ?? []) as Player[];
+
+    const { data: avail } = await supabase
+      .from("event_availability")
+      .select("*")
+      .eq("event_id", event.id);
+    availability = (avail ?? []) as EventAvailability[];
+  }
+
+  // Load RSVPs — current user's own + all for coaches
+  const [{ data: myRsvpRaw }, { data: allRsvpsRaw }] = await Promise.all([
+    user
+      ? supabase
+          .from("event_rsvps")
+          .select("*")
+          .eq("event_id", event.id)
+          .eq("user_id", user.id)
+          .maybeSingle()
+      : Promise.resolve({ data: null }),
+    supabase
+      .from("event_rsvps")
+      .select("*")
+      .eq("event_id", event.id),
+  ]);
+
+  const myRsvp   = (myRsvpRaw   ?? null) as EventRsvp | null;
+  const allRsvps = (allRsvpsRaw ?? [])   as EventRsvp[];
 
   const meta   = EVENT_TYPE_META[event.type];
   const isPast = new Date(event.event_date + "T00:00:00") < new Date(new Date().toDateString());
@@ -202,6 +245,18 @@ export default async function EventDetailPage({ params }: Props) {
 
       {/* ── Content sections ── */}
       <div className="flex flex-col gap-6">
+        {/* RSVP — visible to all authenticated users */}
+        <div>
+          <h2 className="mb-3 text-base font-semibold">RSVP</h2>
+          <EventRsvpPanel
+            eventId={event.id}
+            myRsvp={myRsvp}
+            allRsvps={allRsvps}
+            userRole={event.user_id === user?.id ? "owner" : userRole}
+            userId={user?.id ?? null}
+          />
+        </div>
+
         {/* Linked lineup — prominent card for game/scrimmage */}
         {(event.type === "game" || event.type === "scrimmage") && (
           <div>
@@ -248,6 +303,17 @@ export default async function EventDetailPage({ params }: Props) {
             </div>
           </div>
         )}
+
+        {/* Player availability (shown when a roster is linked) */}
+        <div>
+          <h2 className="mb-3 text-base font-semibold">Player availability</h2>
+          <EventAvailabilityPanel
+            eventId={event.id}
+            players={rosterPlayers}
+            availability={availability}
+            userRole={event.user_id === user?.id ? "owner" : userRole}
+          />
+        </div>
       </div>
     </div>
   );

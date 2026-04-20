@@ -284,3 +284,46 @@ export async function deleteLineup(
   revalidatePath("/lineups");
   return {};
 }
+
+// ── Share token ───────────────────────────────────────────────────────────────
+
+export async function generateShareToken(
+  lineupId: string,
+): Promise<{ token: string | null; error: string | null }> {
+  const cookieStore = await cookies();
+  const supabase    = createClient(cookieStore);
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return { token: null, error: "Not authenticated." };
+
+  const token = crypto.randomUUID();
+  const { error } = await supabase
+    .from("game_lineups")
+    .update({ share_token: token })
+    .eq("id", lineupId)
+    .eq("user_id", user.id);
+
+  if (error) return { token: null, error: error.message };
+
+  revalidatePath(`/lineups/${lineupId}`);
+  return { token, error: null };
+}
+
+export async function revokeShareToken(
+  lineupId: string,
+): Promise<{ error: string | null }> {
+  const cookieStore = await cookies();
+  const supabase    = createClient(cookieStore);
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return { error: "Not authenticated." };
+
+  const { error } = await supabase
+    .from("game_lineups")
+    .update({ share_token: null })
+    .eq("id", lineupId)
+    .eq("user_id", user.id);
+
+  if (error) return { error: error.message };
+
+  revalidatePath(`/lineups/${lineupId}`);
+  return { error: null };
+}

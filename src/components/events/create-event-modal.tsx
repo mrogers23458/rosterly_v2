@@ -4,6 +4,7 @@ import { CheckCircle2, Loader2 } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
 import { createEvent } from "@/app/actions/events";
+import { saveEventReminders } from "@/app/actions/reminders";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import {
@@ -11,58 +12,67 @@ import {
   DialogDescription, DialogHeader, DialogTitle,
 } from "@/components/ui/dialog";
 import { EventFormFields } from "@/components/events/event-form-fields";
+import { EventReminderFields } from "@/components/events/event-reminder-fields";
 import { EVENT_TYPE_META, type EventType, type RecurrenceType } from "@/lib/constants/events";
+import type { ReminderDraft } from "@/lib/constants/reminders";
 import type { GameLineup, Roster, Team } from "@/lib/constants/teams";
 
 type Props = {
-  open:          boolean;
-  onOpenChange:  (v: boolean) => void;
-  teams:         Team[];
-  rosters:       Roster[];
-  lineups:       GameLineup[];
-  defaultTeamId?: string;
+  open:              boolean;
+  onOpenChange:      (v: boolean) => void;
+  teams:             Team[];
+  rosters:           Roster[];
+  lineups:           GameLineup[];
+  defaultTeamId?:    string;
+  defaultLineupId?:  string;
+  defaultRosterId?:  string;
+  defaultEventDate?: string;
 };
 
 export function CreateEventModal({
-  open, onOpenChange, teams, rosters, lineups, defaultTeamId = "",
+  open, onOpenChange, teams, rosters, lineups,
+  defaultTeamId = "", defaultLineupId = "", defaultRosterId = "", defaultEventDate = "",
 }: Props) {
   const router = useRouter();
 
   const [type,       setType]       = useState<EventType>("game");
   const [title,      setTitle]      = useState("");
   const [opponent,   setOpponent]   = useState("");
-  const [eventDate,  setEventDate]  = useState("");
+  const [eventDate,  setEventDate]  = useState(defaultEventDate);
   const [startTime,  setStartTime]  = useState("");
   const [endTime,    setEndTime]    = useState("");
   const [location,   setLocation]   = useState("");
   const [notes,      setNotes]      = useState("");
   const [isHome,     setIsHome]     = useState(true);
   const [teamId,     setTeamId]     = useState(defaultTeamId);
-  const [rosterId,   setRosterId]   = useState("");
-  const [lineupId,   setLineupId]   = useState("");
+  const [rosterId,   setRosterId]   = useState(defaultRosterId);
+  const [lineupId,   setLineupId]   = useState(defaultLineupId);
   const [recurrenceType,    setRecurrenceType]    = useState<RecurrenceType | null>(null);
   const [recurrenceEndDate, setRecurrenceEndDate] = useState("");
   const [done,       setDone]       = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [isPending,  startTransition] = useTransition();
 
+  const [reminders, setReminders] = useState<ReminderDraft[]>([]);
+
   function resetForm() {
     setType("game");
     setTitle("");
     setOpponent("");
-    setEventDate("");
+    setEventDate(defaultEventDate);
     setStartTime("");
     setEndTime("");
     setLocation("");
     setNotes("");
     setIsHome(true);
     setTeamId(defaultTeamId);
-    setRosterId("");
-    setLineupId("");
+    setRosterId(defaultRosterId);
+    setLineupId(defaultLineupId);
     setRecurrenceType(null);
     setRecurrenceEndDate("");
     setDone(false);
     setSubmitError(null);
+    setReminders([]);
   }
 
   function handleOpenChange(v: boolean) {
@@ -122,6 +132,11 @@ export function CreateEventModal({
         return;
       }
 
+      // Save reminders (best-effort, don't block on error)
+      if (reminders.length > 0 && res.data.id) {
+        await saveEventReminders(res.data.id, reminders);
+      }
+
       setDone(true);
       router.refresh();
     });
@@ -169,6 +184,13 @@ export function CreateEventModal({
                 rosters={rosters}
                 lineups={lineups}
               />
+
+              <div className="border-t border-border pt-4">
+                <EventReminderFields
+                  reminders={reminders}
+                  onChange={setReminders}
+                />
+              </div>
 
               {submitError && (
                 <Alert variant="destructive">

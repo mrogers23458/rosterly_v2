@@ -90,3 +90,29 @@ export type UpdateEventInput = Omit<CreateEventInput, "recurrence_type" | "recur
   id:                  string;
   recurrence_group_id: string | null;
 };
+
+export type AvailabilityStatus = "available" | "unavailable" | "unknown";
+
+export type EventAvailability = {
+  id:         string;
+  event_id:   string;
+  player_id:  string;
+  user_id:    string;
+  status:     AvailabilityStatus;
+  notes:      string | null;
+  created_at: string;
+  updated_at: string;
+};
+
+export type RsvpStatus = "going" | "not_going" | "maybe";
+
+export type EventRsvp = {
+  id:             string;
+  event_id:       string;
+  user_id:        string;
+  status:         RsvpStatus;
+  responder_name: string | null;
+  note:           string | null;
+  created_at:     string;
+  updated_at:     string;
+};
