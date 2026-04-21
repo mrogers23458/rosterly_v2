@@ -16,6 +16,7 @@ import { DirectChat } from "@/components/chat/direct-chat";
 import { TeamChat } from "@/components/chat/team-chat";
 import { useChatFlyout } from "@/components/chat/chat-flyout-context";
 import { Button } from "@/components/ui/button";
+import { Skeleton } from "@/components/ui/skeleton";
 import { createClient } from "@/utils/supabase/client";
 import { cn } from "@/lib/utils";
 
@@ -96,12 +97,38 @@ export function QuickChatWidget() {
 
   if (!userId || loading) {
     return (
-      <div
-        className="flex h-full animate-pulse flex-col rounded-lg border border-border bg-card"
-        style={{ height: "100%" }}
-      >
-        <div className="h-12 border-b border-border bg-muted/30" />
-        <div className="flex-1 bg-muted/20" />
+      <div className="flex h-full flex-col rounded-lg border border-border bg-card" style={{ height: "100%" }}>
+        {/* Header skeleton */}
+        <div className="shrink-0 border-b border-border px-3 py-2.5">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <Skeleton className="h-4 w-4 rounded" />
+              <Skeleton className="h-4 w-20" />
+            </div>
+            <Skeleton className="h-7 w-28 rounded-md" />
+          </div>
+          {/* Mode tabs */}
+          <div className="mt-2 flex gap-1">
+            <Skeleton className="h-7 flex-1 rounded-md" />
+            <Skeleton className="h-7 flex-1 rounded-md" />
+          </div>
+          {/* Dropdown */}
+          <Skeleton className="mt-2 h-7 w-full rounded-md" />
+        </div>
+
+        {/* Message bubbles skeleton */}
+        <div className="flex flex-1 flex-col gap-2 overflow-hidden px-3 py-3">
+          <Skeleton className="h-8 w-2/3 self-start rounded-2xl rounded-tl-sm" />
+          <Skeleton className="h-8 w-1/2 self-end rounded-2xl rounded-tr-sm" />
+          <Skeleton className="h-10 w-3/4 self-start rounded-2xl rounded-tl-sm" />
+          <Skeleton className="h-8 w-2/5 self-end rounded-2xl rounded-tr-sm" />
+          <Skeleton className="h-8 w-3/5 self-start rounded-2xl rounded-tl-sm" />
+        </div>
+
+        {/* Input skeleton */}
+        <div className="shrink-0 border-t border-border px-3 py-2">
+          <Skeleton className="h-8 w-full rounded-full" />
+        </div>
       </div>
     );
   }
