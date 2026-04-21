@@ -55,7 +55,7 @@ const navItems: NavItem[] = [
     label: "Players",
     href: "/players",
     icon: UserCircle2,
-    matchFn: (p) => p === "/players",
+    matchFn: (p) => p === "/players" || p.startsWith("/players/"),
   },
   {
     label: "Lineups",
@@ -181,7 +181,7 @@ function AuthenticatedShellInner({ children }: { children: React.ReactNode }) {
   };
 
   return (
-    <div className="flex min-h-screen bg-background">
+    <div className="flex min-h-dvh bg-background [--sidebar-w:16rem]">
       <ContactSupportModal open={supportOpen} onOpenChange={setSupportOpen} />
       <MessagesFlyout />
 
@@ -214,7 +214,7 @@ function AuthenticatedShellInner({ children }: { children: React.ReactNode }) {
         <SidebarContents {...sidebarProps} />
       </aside>
 
-      <div className="flex min-h-screen w-full flex-col md:pl-64">
+      <div className="flex min-h-dvh w-full flex-col md:pl-64">
         <header className="sticky top-0 z-20 flex h-14 items-center gap-2 border-b border-border bg-white px-4 md:hidden">
           <button
             onClick={() => setMobileOpen(true)}

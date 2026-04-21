@@ -222,7 +222,7 @@ function PlayerEditRow({
     <tr className="border-b border-border bg-primary/5">
       <td colSpan={5} className="px-3 py-4">
         <div className="flex flex-col gap-3">
-          <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
             <div className="flex flex-col gap-1"><Label className="text-xs">First *</Label>
               <Input className="h-8 text-xs" value={player.first_name} onChange={(e) => set("first_name", e.target.value)} /></div>
             <div className="flex flex-col gap-1"><Label className="text-xs">Last *</Label>
@@ -270,7 +270,7 @@ function PlayerEditRow({
               </div>
             </div>
           </div>
-          <div className="flex items-center justify-between">
+          <div className="flex flex-wrap items-center justify-between gap-2">
             <label className="flex items-center gap-1.5 text-xs cursor-pointer">
               <Checkbox checked={player.is_active} onCheckedChange={(c) => set("is_active", c === true)} />
               Active on roster
@@ -322,7 +322,7 @@ function DuplicateCard({
       </div>
 
       {/* Side-by-side comparison */}
-      <div className="mb-3 grid grid-cols-2 gap-3 text-xs">
+      <div className="mb-3 grid grid-cols-1 gap-3 text-xs sm:grid-cols-2">
         <div className="rounded-md border border-border bg-card p-3">
           <p className="mb-2 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
             On Roster
@@ -439,7 +439,7 @@ function ReviewStep({
           <p className="text-sm font-medium">
             New players <span className="text-muted-foreground font-normal">({nonDuplicates.length})</span>
           </p>
-          <div className="overflow-hidden rounded-lg border border-border">
+          <div className="overflow-x-auto rounded-lg border border-border">
             <table className="w-full text-sm">
               <thead>
                 <tr className="border-b border-border bg-muted/50">

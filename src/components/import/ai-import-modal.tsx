@@ -520,7 +520,7 @@ export function AiImportModal({ open, onOpenChange, preselectedTeamId, defaultIn
               ) : (
                 <>
                   {/* Extraction summary */}
-                  <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+                  <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
                     <SummaryCard
                       icon={<Building2 className="h-4 w-4" />}
                       label="Team"
@@ -776,7 +776,7 @@ export function AiImportModal({ open, onOpenChange, preselectedTeamId, defaultIn
                       autoFocus
                     />
                   </div>
-                  <div className="grid grid-cols-2 gap-3">
+                  <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
                     <div className="flex flex-col gap-1">
                       <Label htmlFor="fill-team-year">Year</Label>
                       <Input
@@ -980,7 +980,7 @@ function DoneRow({
   children?: React.ReactNode;
 }) {
   return (
-    <div className="flex items-center justify-between gap-3 rounded-lg border border-border bg-muted/20 px-4 py-3">
+    <div className="flex flex-col gap-2 rounded-lg border border-border bg-muted/20 px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
       <div className="flex items-center gap-2 text-sm">
         <span className="text-primary">{icon}</span>
         {label}

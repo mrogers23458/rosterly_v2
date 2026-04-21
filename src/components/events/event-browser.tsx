@@ -423,8 +423,8 @@ export function EventBrowser({ events, teams, rosters, lineups, teamRoles, userI
       {/* ── Controls ── */}
       <div className="flex flex-col gap-3">
         {/* Search + view toggle + sort */}
-        <div className="flex items-center gap-2">
-          <div className="relative flex-1">
+        <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
+          <div className="relative w-full min-w-0 sm:flex-1">
             <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
             <Input
               placeholder="Search events…"
@@ -434,49 +434,51 @@ export function EventBrowser({ events, teams, rosters, lineups, teamRoles, userI
             />
           </div>
 
-          {/* Sort */}
-          <select
-            value={sort}
-            onChange={(e) => setSort(e.target.value as SortKey)}
-            className="h-10 rounded-md border border-input bg-background pl-3 pr-10 text-sm shadow-xs focus:outline-none focus:ring-1 focus:ring-ring"
-          >
-            <option value="date-asc">Soonest first</option>
-            <option value="date-desc">Latest first</option>
-          </select>
+          <div className="flex items-center gap-2 sm:shrink-0">
+            {/* Sort */}
+            <select
+              value={sort}
+              onChange={(e) => setSort(e.target.value as SortKey)}
+              className="h-10 min-w-[180px] rounded-md border border-input bg-background pl-3 pr-10 text-sm shadow-xs focus:outline-none focus:ring-1 focus:ring-ring"
+            >
+              <option value="date-asc">Soonest first</option>
+              <option value="date-desc">Latest first</option>
+            </select>
 
-          {/* View toggle */}
-          <div className="flex overflow-hidden rounded-md border border-border">
-            <button
-              type="button"
-              onClick={() => setView("card")}
-              title="Card view"
-              className={cn(
-                "flex h-10 w-10 items-center justify-center transition-colors",
-                view === "card"
-                  ? "bg-primary text-primary-foreground"
-                  : "bg-background text-muted-foreground hover:text-foreground",
-              )}
-            >
-              <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <rect x="3" y="3" width="7" height="7" rx="1" strokeWidth="2" />
-                <rect x="14" y="3" width="7" height="7" rx="1" strokeWidth="2" />
-                <rect x="3" y="14" width="7" height="7" rx="1" strokeWidth="2" />
-                <rect x="14" y="14" width="7" height="7" rx="1" strokeWidth="2" />
-              </svg>
-            </button>
-            <button
-              type="button"
-              onClick={() => setView("list")}
-              title="List view"
-              className={cn(
-                "flex h-10 w-10 items-center justify-center border-l border-border transition-colors",
-                view === "list"
-                  ? "bg-primary text-primary-foreground"
-                  : "bg-background text-muted-foreground hover:text-foreground",
-              )}
-            >
-              <LayoutList className="h-4 w-4" />
-            </button>
+            {/* View toggle */}
+            <div className="flex overflow-hidden rounded-md border border-border">
+              <button
+                type="button"
+                onClick={() => setView("card")}
+                title="Card view"
+                className={cn(
+                  "flex h-10 w-10 items-center justify-center transition-colors",
+                  view === "card"
+                    ? "bg-primary text-primary-foreground"
+                    : "bg-background text-muted-foreground hover:text-foreground",
+                )}
+              >
+                <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <rect x="3" y="3" width="7" height="7" rx="1" strokeWidth="2" />
+                  <rect x="14" y="3" width="7" height="7" rx="1" strokeWidth="2" />
+                  <rect x="3" y="14" width="7" height="7" rx="1" strokeWidth="2" />
+                  <rect x="14" y="14" width="7" height="7" rx="1" strokeWidth="2" />
+                </svg>
+              </button>
+              <button
+                type="button"
+                onClick={() => setView("list")}
+                title="List view"
+                className={cn(
+                  "flex h-10 w-10 items-center justify-center border-l border-border transition-colors",
+                  view === "list"
+                    ? "bg-primary text-primary-foreground"
+                    : "bg-background text-muted-foreground hover:text-foreground",
+                )}
+              >
+                <LayoutList className="h-4 w-4" />
+              </button>
+            </div>
           </div>
         </div>
 

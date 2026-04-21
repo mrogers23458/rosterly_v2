@@ -413,7 +413,7 @@ export function LineupTable({
   return (
     <div className="flex flex-col gap-2">
       {/* Controls row */}
-      <div className="flex items-center justify-between gap-3">
+      <div className="flex flex-wrap items-center gap-3">
         <span className="text-sm font-medium shrink-0">
           Players{" "}
           <span className="font-normal text-muted-foreground">({entries.length})</span>
@@ -431,7 +431,7 @@ export function LineupTable({
           </button>
         )}
 
-        <div className="flex items-center gap-2 text-sm">
+        <div className="ml-auto flex items-center gap-2 text-sm">
           <span className="text-muted-foreground">Innings:</span>
           <div className="flex items-center gap-1">
             <button

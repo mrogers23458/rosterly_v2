@@ -227,7 +227,7 @@ export function AddGameStatsModal({
 
               {/* ── Batting ──────────────────────────────────────────── */}
               <SectionHeading>Batting</SectionHeading>
-              <div className="grid grid-cols-3 gap-3 sm:grid-cols-4">
+              <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
                 <NumField id="at_bats"        label="AB"  value={form.at_bats}        onChange={(v) => setNum("at_bats", v)} />
                 <NumField id="hits"           label="H"   value={form.hits}           onChange={(v) => setNum("hits", v)} />
                 <NumField id="doubles"        label="2B"  value={form.doubles}        onChange={(v) => setNum("doubles", v)} />
@@ -243,7 +243,7 @@ export function AddGameStatsModal({
 
               {/* ── Pitching ─────────────────────────────────────────── */}
               <SectionHeading>Pitching</SectionHeading>
-              <div className="grid grid-cols-3 gap-3 sm:grid-cols-4">
+              <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
                 <NumField id="innings_pitched" label="IP"  value={form.innings_pitched} onChange={(v) => setNum("innings_pitched", v)} hint="e.g. 2.1" />
                 <NumField id="hits_allowed"    label="H"   value={form.hits_allowed}    onChange={(v) => setNum("hits_allowed", v)} />
                 <NumField id="runs_allowed"    label="R"   value={form.runs_allowed}    onChange={(v) => setNum("runs_allowed", v)} />
@@ -256,7 +256,7 @@ export function AddGameStatsModal({
 
               {/* ── Fielding ─────────────────────────────────────────── */}
               <SectionHeading>Fielding</SectionHeading>
-              <div className="grid grid-cols-3 gap-3 sm:grid-cols-4">
+              <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
                 <NumField id="putouts" label="PO" value={form.putouts} onChange={(v) => setNum("putouts", v)} />
                 <NumField id="assists" label="A"  value={form.assists} onChange={(v) => setNum("assists", v)} />
                 <NumField id="errors"  label="E"  value={form.errors}  onChange={(v) => setNum("errors", v)} />

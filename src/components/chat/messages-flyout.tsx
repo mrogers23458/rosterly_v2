@@ -89,7 +89,7 @@ export function MessagesFlyout() {
     <>
       <div
         className={cn(
-          "fixed inset-0 z-[42] bg-black/30 transition-opacity md:left-64",
+          "fixed inset-0 z-[42] bg-black/30 transition-opacity md:left-[var(--sidebar-w)]",
           open ? "opacity-100" : "pointer-events-none opacity-0",
         )}
         aria-hidden={!open}
@@ -100,7 +100,7 @@ export function MessagesFlyout() {
         className={cn(
           "fixed z-[43] flex flex-col border-l border-border bg-white shadow-xl transition-transform duration-200 ease-out",
           "right-0 top-14 h-[calc(100dvh-3.5rem)] w-full sm:max-w-full",
-          "md:top-0 md:h-screen md:w-[min(720px,calc(100vw-16rem))]",
+          "md:top-0 md:h-screen md:w-[min(720px,calc(100vw-var(--sidebar-w)))]",
           open ? "translate-x-0" : "translate-x-full pointer-events-none",
         )}
         aria-hidden={!open}

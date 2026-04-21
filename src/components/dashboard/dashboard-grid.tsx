@@ -217,14 +217,14 @@ export function DashboardGrid({
   return (
     <>
       {/* Page header */}
-      <div className="mb-6 flex items-center justify-between">
+      <div className="mb-6 flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
         <h1 className="text-2xl font-bold tracking-tight sm:text-3xl">Dashboard</h1>
         <Button
           type="button"
           variant="outline"
           size="sm"
           onClick={() => setManagerOpen(true)}
-          className="gap-1.5"
+          className="w-full gap-1.5 sm:w-auto"
         >
           <Plus className="h-3.5 w-3.5" />
           Add widget

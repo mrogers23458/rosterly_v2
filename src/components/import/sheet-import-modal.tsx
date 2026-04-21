@@ -189,7 +189,7 @@ function PlayerReviewRow({
     <tr className="border-b border-border bg-primary/5">
       <td colSpan={5} className="px-3 py-4">
         <div className="flex flex-col gap-3">
-          <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
             <div className="flex flex-col gap-1">
               <Label className="text-xs">First *</Label>
               <Input className="h-8 text-xs" value={player.first_name}
@@ -240,7 +240,7 @@ function PlayerReviewRow({
               ))}
             </div>
           </div>
-          <div className="flex items-center justify-between">
+          <div className="flex flex-wrap items-center justify-between gap-2">
             <label className="flex cursor-pointer items-center gap-1.5 text-xs">
               <Checkbox
                 checked={player.is_active}
@@ -497,7 +497,7 @@ export function SheetImportModal({ open, onOpenChange, preselectedTeamId }: Prop
               {/* Column mapper table */}
               <div>
                 <p className="mb-2 text-sm font-semibold">Column mapping</p>
-                <div className="overflow-hidden rounded-lg border border-border">
+                <div className="overflow-x-auto rounded-lg border border-border">
                   <table className="w-full text-xs">
                     <thead>
                       <tr className="border-b border-border bg-muted/50">
@@ -666,7 +666,7 @@ export function SheetImportModal({ open, onOpenChange, preselectedTeamId }: Prop
                     Click <Pencil className="inline h-3 w-3" /> to edit any player before saving.
                   </p>
 
-                  <div className="overflow-hidden rounded-lg border border-border">
+                  <div className="overflow-x-auto rounded-lg border border-border">
                     <table className="w-full text-sm">
                       <thead>
                         <tr className="border-b border-border bg-muted/50">
@@ -748,7 +748,7 @@ export function SheetImportModal({ open, onOpenChange, preselectedTeamId }: Prop
 
               <div className="flex w-full flex-col gap-2 text-sm">
                 {doneResult.teamId && (
-                  <div className="flex items-center justify-between gap-3 rounded-lg border border-border bg-muted/20 px-4 py-3">
+                  <div className="flex flex-col gap-2 rounded-lg border border-border bg-muted/20 px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
                     <div className="flex items-center gap-2 text-sm">
                       <span className="text-primary"><Building2 className="h-4 w-4" /></span>
                       Team created
@@ -763,7 +763,7 @@ export function SheetImportModal({ open, onOpenChange, preselectedTeamId }: Prop
                   </div>
                 )}
                 {doneResult.rosterId && (
-                  <div className="flex items-center justify-between gap-3 rounded-lg border border-border bg-muted/20 px-4 py-3">
+                  <div className="flex flex-col gap-2 rounded-lg border border-border bg-muted/20 px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
                     <div className="flex items-center gap-2 text-sm">
                       <span className="text-primary"><FileSpreadsheet className="h-4 w-4" /></span>
                       Roster created

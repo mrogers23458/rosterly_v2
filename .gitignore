@@ -10,6 +10,9 @@ node_modules/
 
 # ─── Testing ─────────────────────────────────────────────────────────────────
 /coverage
+/playwright-report/
+/test-results/
+/blob-report/
 
 # ─── Next.js (web app) ───────────────────────────────────────────────────────
 /.next/
@@ -17,21 +20,12 @@ node_modules/
 next-env.d.ts
 *.tsbuildinfo
 
-# ─── Expo / React Native (mobile/) ───────────────────────────────────────────
-mobile/.expo/
-mobile/dist/
-mobile/android/
-mobile/ios/
-mobile/.env
-.expo/
-
 # ─── Build output ────────────────────────────────────────────────────────────
 /build
 
 # ─── Env files ───────────────────────────────────────────────────────────────
 .env*
 !.env.example
-!mobile/.env.example
 
 # ─── Vercel ──────────────────────────────────────────────────────────────────
 .vercel

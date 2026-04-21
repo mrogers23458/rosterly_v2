@@ -49,7 +49,7 @@ function PositionCheckboxes({ name, selected, onChange }: {
   onChange: (pos: string, checked: boolean) => void;
 }) {
   return (
-    <div className="grid grid-cols-3 gap-x-4 gap-y-2 sm:grid-cols-5">
+    <div className="grid grid-cols-2 gap-x-4 gap-y-2 sm:grid-cols-5">
       {POSITIONS.map((pos) => (
         <div key={pos} className="flex items-center gap-1.5">
           <Checkbox

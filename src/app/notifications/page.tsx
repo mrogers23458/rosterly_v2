@@ -35,7 +35,7 @@ export default async function NotificationsPage() {
 
   return (
     <div className="px-4 py-8 sm:px-6 md:px-8">
-      <div className="mb-6 flex items-center justify-between gap-4">
+      <div className="mb-6 flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
         <div>
           <h1 className="text-2xl font-bold tracking-tight sm:text-3xl">Notifications</h1>
           <p className="mt-1 text-sm text-muted-foreground">
@@ -50,7 +50,7 @@ export default async function NotificationsPage() {
               await markNotificationsRead(unreadIds);
             }}
           >
-            <Button variant="outline" size="sm" type="submit" className="gap-1.5">
+            <Button variant="outline" size="sm" type="submit" className="w-full gap-1.5 sm:w-auto">
               <Check className="h-3.5 w-3.5" />
               Mark all read
             </Button>

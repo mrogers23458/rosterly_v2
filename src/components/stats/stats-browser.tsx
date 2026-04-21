@@ -473,12 +473,12 @@ export function StatsBrowser({ aggregated, teams, rosters, players }: Props) {
           </button>
         </div>
 
-        <div className="flex items-center gap-2">
+        <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
           {view === "player" && teams.length > 0 && (
             <select
               value={teamFilter}
               onChange={(e) => setTeamFilter(e.target.value)}
-              className="h-9 rounded-md border border-input bg-background pl-3 pr-10 text-sm shadow-xs focus:outline-none focus:ring-1 focus:ring-ring"
+              className="h-9 w-full rounded-md border border-input bg-background pl-3 pr-10 text-sm shadow-xs focus:outline-none focus:ring-1 focus:ring-ring sm:w-auto"
             >
               <option value="all">All teams</option>
               {teams.map((t) => (
@@ -486,7 +486,7 @@ export function StatsBrowser({ aggregated, teams, rosters, players }: Props) {
               ))}
             </select>
           )}
-          <Button variant="outline" onClick={() => setImportOpen(true)}>
+          <Button variant="outline" onClick={() => setImportOpen(true)} className="w-full sm:w-auto">
             <Download className="h-4 w-4" />
             Import from GameChanger
           </Button>

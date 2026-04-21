@@ -238,7 +238,7 @@ function ReviewTeamStep({
       <div className="rounded-lg border border-border bg-muted/30 p-4">
         {!editing ? (
           <>
-            <div className="mb-3 flex items-center justify-between">
+            <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
               <span className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
                 Team details
               </span>
@@ -246,7 +246,7 @@ function ReviewTeamStep({
                 <Pencil className="h-3.5 w-3.5" /> Edit
               </Button>
             </div>
-            <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
               <FieldRow label="Name"><ReadValue value={draft.name} /></FieldRow>
               <FieldRow label="Year"><ReadValue value={draft.year} /></FieldRow>
               <FieldRow label="Season"><ReadValue value={draft.season} /></FieldRow>
@@ -259,7 +259,7 @@ function ReviewTeamStep({
           </>
         ) : (
           <>
-            <div className="mb-3 flex items-center justify-between">
+            <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
               <span className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
                 Edit team details
               </span>
@@ -353,7 +353,7 @@ function ReviewRosterStep({
       <div className="rounded-lg border border-border bg-muted/30 p-4">
         {!editing ? (
           <>
-            <div className="mb-3 flex items-center justify-between">
+            <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
               <span className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
                 Roster details
               </span>
@@ -361,7 +361,7 @@ function ReviewRosterStep({
                 <Pencil className="h-3.5 w-3.5" /> Edit
               </Button>
             </div>
-            <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
               <FieldRow label="Name"><ReadValue value={draft.name} /></FieldRow>
               <FieldRow label="Season"><ReadValue value={draft.season} /></FieldRow>
               <FieldRow label="Year"><ReadValue value={draft.year} /></FieldRow>
@@ -375,7 +375,7 @@ function ReviewRosterStep({
           </>
         ) : (
           <>
-            <div className="mb-3 flex items-center justify-between">
+            <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
               <span className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
                 Edit roster details
               </span>
@@ -482,7 +482,7 @@ function PlayerRow({
     <tr className="border-b border-border bg-primary/5">
       <td colSpan={5} className="px-3 py-4">
         <div className="flex flex-col gap-3">
-          <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
             <div className="flex flex-col gap-1"><Label className="text-xs">First *</Label>
               <Input className="h-8 text-xs" value={player.first_name}
                 onChange={(e) => set("first_name", e.target.value)} /></div>
@@ -496,7 +496,7 @@ function PlayerRow({
               <Input className="h-8 text-xs" placeholder="nickname"
                 onChange={(e) => set("first_name", e.target.value)} /></div>
           </div>
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
             <div className="flex flex-col gap-1"><Label className="text-xs">Bats</Label>
               <Select className="h-8 text-xs" value={player.bats}
                 onChange={(e) => set("bats", e.target.value)}>
@@ -522,7 +522,7 @@ function PlayerRow({
               onChange={(pos, c) => set("secondary_positions",
                 c ? [...player.secondary_positions, pos] : player.secondary_positions.filter((p) => p !== pos))} />
           </div>
-          <div className="flex items-center justify-between">
+          <div className="flex flex-wrap items-center justify-between gap-2">
             <label className="flex items-center gap-1.5 text-xs cursor-pointer">
               <Checkbox checked={player.is_active}
                 onCheckedChange={(c) => set("is_active", c === true)} />
@@ -556,7 +556,7 @@ function ReviewPlayersStep({
 
       {error && <Alert variant="destructive"><AlertDescription>{error}</AlertDescription></Alert>}
 
-      <div className="overflow-hidden rounded-lg border border-border">
+      <div className="overflow-x-auto rounded-lg border border-border">
         <table className="w-full text-sm">
           <thead>
             <tr className="border-b border-border bg-muted/50">

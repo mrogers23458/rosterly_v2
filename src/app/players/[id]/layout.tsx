@@ -1,5 +1,4 @@
-import { AuthenticatedShell } from "@/components/layout/authenticated-shell";
-
+/** Parent `players/layout` already provides `AuthenticatedShell`. */
 export default function PlayerDetailLayout({ children }: { children: React.ReactNode }) {
-  return <AuthenticatedShell>{children}</AuthenticatedShell>;
+  return children;
 }

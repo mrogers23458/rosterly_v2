@@ -132,7 +132,7 @@ export function TeamMembersPanel({
         {members.map((member) => (
           <div
             key={member.id}
-            className="flex items-center justify-between gap-3 px-4 py-3"
+            className="flex flex-col gap-2 px-4 py-3 sm:flex-row sm:items-center sm:justify-between"
           >
             <div className="min-w-0">
               <p className="truncate text-sm font-medium">
@@ -183,7 +183,7 @@ export function TeamMembersPanel({
           </p>
           <div className="divide-y divide-border rounded-lg border border-border border-dashed">
             {pending.map((inv) => (
-              <div key={inv.id} className="flex items-center justify-between gap-3 px-4 py-2.5">
+              <div key={inv.id} className="flex flex-col gap-2 px-4 py-2.5 sm:flex-row sm:items-center sm:justify-between">
                 <div className="flex min-w-0 items-center gap-2">
                   <Clock className="h-3.5 w-3.5 shrink-0 text-muted-foreground/50" />
                   <p className="truncate text-sm text-muted-foreground">{inv.email}</p>
@@ -226,7 +226,7 @@ export function TeamMembersPanel({
             />
           </div>
 
-          <div className="w-44">
+          <div className="w-full sm:w-44">
             <label className="mb-1 block text-xs font-medium text-muted-foreground">
               Role
             </label>

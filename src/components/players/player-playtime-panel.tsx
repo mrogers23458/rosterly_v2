@@ -94,7 +94,7 @@ export function PlayerPlaytimePanel({ appearances }: Props) {
       <h2 className="mb-4 text-base font-semibold">Playtime Summary</h2>
 
       {/* Summary stats row */}
-      <div className="mb-4 grid grid-cols-2 gap-3 sm:grid-cols-4">
+      <div className="mb-4 grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
         <StatTile icon={<CalendarDays className="h-4 w-4" />} label="Games" value={String(totalGames)} />
         <StatTile icon={<Clock className="h-4 w-4" />} label="Innings Played" value={String(totalInningsPlayed)} />
         <StatTile icon={<TrendingUp className="h-4 w-4" />} label="Play Rate" value={`${playedPct}%`} />
@@ -138,7 +138,7 @@ export function PlayerPlaytimePanel({ appearances }: Props) {
       )}
 
       {/* Game-by-game appearance list */}
-      <div className="overflow-hidden rounded-lg border border-border">
+      <div className="overflow-x-auto rounded-lg border border-border">
         <table className="w-full text-sm">
           <thead>
             <tr className="border-b border-border bg-muted/50">
