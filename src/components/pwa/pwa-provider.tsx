@@ -11,18 +11,64 @@ type BeforeInstallPromptEvent = Event & {
 export function PwaProvider({ children }: { children: React.ReactNode }) {
   const [installEvent, setInstallEvent] = useState<BeforeInstallPromptEvent | null>(null);
   const [updateReady, setUpdateReady] = useState(false);
-  const [offline, setOffline] = useState(
-    () => typeof navigator !== "undefined" && !navigator.onLine,
-  );
+  const [pushSupported, setPushSupported] = useState(false);
+  const [pushEnabled, setPushEnabled] = useState(false);
+  const [pushPending, setPushPending] = useState(false);
+  // Always start online — navigator.onLine is unreliable on iOS Safari at mount time
+  // and should never be trusted for initial render. We learn the real state reactively.
+  const [offline, setOffline] = useState(false);
+
+  async function probeConnectivity() {
+    if (typeof window === "undefined") return true;
+    try {
+      const controller = new AbortController();
+      const timer = window.setTimeout(() => controller.abort(), 5000);
+      // /api/ping is a minimal endpoint excluded from SW caching and middleware auth,
+      // making it the most reliable target for a connectivity probe.
+      const response = await fetch(`/api/ping?ts=${Date.now()}`, {
+        method: "GET",
+        cache: "no-store",
+        signal: controller.signal,
+      });
+      window.clearTimeout(timer);
+      return response.ok;
+    } catch {
+      return false;
+    }
+  }
+
+  function decodeVapidKey(base64: string) {
+    const padding = "=".repeat((4 - (base64.length % 4)) % 4);
+    const normalized = (base64 + padding).replaceAll("-", "+").replaceAll("_", "/");
+    const raw = atob(normalized);
+    return Uint8Array.from([...raw].map((ch) => ch.charCodeAt(0)));
+  }
 
   useEffect(() => {
     if (typeof window === "undefined") return;
-    const onlineHandler = () => setOffline(false);
-    const offlineHandler = () => setOffline(true);
+    let probeTimer: ReturnType<typeof setTimeout> | undefined;
+    let isMounted = true;
+
+    const onlineHandler = () => {
+      if (isMounted) setOffline(false);
+    };
+
+    const offlineHandler = () => {
+      // iOS Safari fires spurious offline events when switching networks or on WiFi
+      // reconnects. We validate with a real fetch before marking the user offline.
+      if (probeTimer) clearTimeout(probeTimer);
+      probeTimer = setTimeout(async () => {
+        const reachable = await probeConnectivity();
+        if (isMounted) setOffline(!reachable);
+      }, 1000);
+    };
+
     window.addEventListener("online", onlineHandler);
     window.addEventListener("offline", offlineHandler);
 
     return () => {
+      isMounted = false;
+      if (probeTimer) clearTimeout(probeTimer);
       window.removeEventListener("online", onlineHandler);
       window.removeEventListener("offline", offlineHandler);
     };
@@ -64,14 +110,19 @@ export function PwaProvider({ children }: { children: React.ReactNode }) {
 
     void register();
 
-    const controllerChange = () => window.location.reload();
-    navigator.serviceWorker.addEventListener("controllerchange", controllerChange);
-
     return () => {
       mounted = false;
       if (updateCheckInterval) clearInterval(updateCheckInterval);
-      navigator.serviceWorker.removeEventListener("controllerchange", controllerChange);
     };
+  }, []);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const notifSupported = "Notification" in window;
+    setPushSupported("serviceWorker" in navigator && "PushManager" in window && notifSupported);
+    // Guard against iOS versions where Notification exists in window but permission
+    // access can throw, and against environments where Notification is undefined.
+    setPushEnabled(notifSupported && Notification.permission === "granted");
   }, []);
 
   useEffect(() => {
@@ -92,11 +143,11 @@ export function PwaProvider({ children }: { children: React.ReactNode }) {
     };
   }, []);
 
-  const applyUpdate = async () => {
-    if (!("serviceWorker" in navigator)) return;
-    const registration = await navigator.serviceWorker.getRegistration();
-    if (!registration?.waiting) return;
-    registration.waiting.postMessage({ type: "SKIP_WAITING" });
+  const applyUpdate = () => {
+    // The SW calls skipWaiting() on install so it activates immediately without
+    // entering the waiting state. A direct reload is all that's needed to load
+    // the latest assets served by the newly-active SW.
+    window.location.reload();
   };
 
   const installApp = async () => {
@@ -104,6 +155,36 @@ export function PwaProvider({ children }: { children: React.ReactNode }) {
     await installEvent.prompt();
     const result = await installEvent.userChoice;
     if (result.outcome === "accepted") setInstallEvent(null);
+  };
+
+  const enablePush = async () => {
+    if (!pushSupported || pushPending) return;
+    const vapidPublic = process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY;
+    if (!vapidPublic) return;
+    setPushPending(true);
+
+    try {
+      const permission = await Notification.requestPermission();
+      if (permission !== "granted") return;
+      const registration = await navigator.serviceWorker.ready;
+      let subscription = await registration.pushManager.getSubscription();
+      if (!subscription) {
+        subscription = await registration.pushManager.subscribe({
+          userVisibleOnly: true,
+          applicationServerKey: decodeVapidKey(vapidPublic),
+        });
+      }
+
+      await fetch("/api/push/subscription", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(subscription.toJSON()),
+      });
+
+      setPushEnabled(true);
+    } finally {
+      setPushPending(false);
+    }
   };
 
   return (

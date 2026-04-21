@@ -16,6 +16,10 @@ jobs:
     name: Build and E2E
     runs-on: ubuntu-latest
     timeout-minutes: 35
+    env:
+      NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
+      NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: ${{ secrets.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY }}
+      NEXT_PUBLIC_SITE_URL: ${{ secrets.NEXT_PUBLIC_SITE_URL }}
 
     steps:
       - name: Checkout
@@ -32,6 +36,11 @@ jobs:
 
       - name: Install Playwright browser
         run: npx playwright install --with-deps chromium
+
+      - name: Validate required CI env vars
+        run: |
+          test -n "$NEXT_PUBLIC_SUPABASE_URL" || (echo "Missing secret: NEXT_PUBLIC_SUPABASE_URL" && exit 1)
+          test -n "$NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY" || (echo "Missing secret: NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY" && exit 1)
 
       - name: Build app
         run: npm run build
