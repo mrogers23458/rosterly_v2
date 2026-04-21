@@ -20,19 +20,21 @@ import { CSS } from "@dnd-kit/utilities";
 import { GripVertical, LayoutDashboard, Plus, X } from "lucide-react";
 import { useEffect, useState } from "react";
 import { ManualSetupWidget } from "@/components/dashboard/manual-setup-widget";
+import { NotificationsWidget } from "@/components/dashboard/widgets/notifications-widget";
 import { QuickChatWidget } from "@/components/dashboard/widgets/quick-chat-widget";
 import { WeatherWidget } from "@/components/dashboard/weather-widget";
 import { WidgetManagerModal, WIDGET_REGISTRY } from "@/components/dashboard/widget-manager-modal";
 import { UpcomingEventsWidget } from "@/components/dashboard/widgets/upcoming-events-widget";
 import { Button } from "@/components/ui/button";
+import { Skeleton } from "@/components/ui/skeleton";
 import { cn } from "@/lib/utils";
 import type { TeamEvent } from "@/lib/constants/events";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
-export type WidgetId = "upcoming-games" | "quick-chat" | "weather" | "manual-setup";
+export type WidgetId = "upcoming-games" | "quick-chat" | "weather" | "manual-setup" | "notifications";
 
-const DEFAULT_ORDER: WidgetId[]   = ["upcoming-games", "quick-chat", "weather", "manual-setup"];
+const DEFAULT_ORDER: WidgetId[]   = ["upcoming-games", "notifications", "quick-chat", "weather", "manual-setup"];
 const DEFAULT_HIDDEN: WidgetId[]  = [];
 const STORAGE_KEY = "rosterly-dashboard-v2";
 
@@ -196,9 +198,10 @@ export function DashboardGrid({
         hasTeams={hasTeams}
       />
     ),
-    "quick-chat":   <QuickChatWidget />,
-    "weather":      <WeatherWidget />,
-    "manual-setup": <ManualSetupWidget />,
+    "notifications": <NotificationsWidget />,
+    "quick-chat":    <QuickChatWidget />,
+    "weather":       <WeatherWidget />,
+    "manual-setup":  <ManualSetupWidget />,
   };
 
   // ── Render ───────────────────────────────────────────────────────────────────
@@ -206,11 +209,32 @@ export function DashboardGrid({
   // Before mount, render server-consistent placeholder to avoid hydration mismatch
   if (!mounted) {
     return (
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
-        {DEFAULT_ORDER.filter((id) => !DEFAULT_HIDDEN.includes(id)).map((id) => (
-          <div key={id} className="min-h-[260px] animate-pulse rounded-lg border border-border bg-muted/30" />
-        ))}
-      </div>
+      <>
+        <div className="mb-6 flex items-center justify-between">
+          <Skeleton className="h-8 w-36" />
+          <Skeleton className="h-8 w-28 rounded-md" />
+        </div>
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+          {DEFAULT_ORDER.filter((id) => !DEFAULT_HIDDEN.includes(id)).map((id) => (
+            <div key={id} className="flex min-h-[260px] flex-col overflow-hidden rounded-lg border border-border bg-card">
+              {/* Simulated widget header */}
+              <div className="flex items-center justify-between border-b border-border px-4 py-3.5">
+                <div className="flex items-center gap-2">
+                  <Skeleton className="h-4 w-4 rounded" />
+                  <Skeleton className="h-4 w-24" />
+                </div>
+                <Skeleton className="h-4 w-12" />
+              </div>
+              {/* Body rows */}
+              <div className="flex flex-col gap-3 p-4">
+                {[...Array(4)].map((_, i) => (
+                  <Skeleton key={i} className="h-4" style={{ width: `${60 + (i % 3) * 15}%` }} />
+                ))}
+              </div>
+            </div>
+          ))}
+        </div>
+      </>
     );
   }
 

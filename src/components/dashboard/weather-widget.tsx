@@ -4,6 +4,7 @@ import {
   Cloud, CloudDrizzle, CloudLightning, CloudRain, CloudSnow,
   CloudSun, MapPin, RefreshCw, Sun, Wind,
 } from "lucide-react";
+import { Skeleton } from "@/components/ui/skeleton";
 import { useCallback, useEffect, useState } from "react";
 
 // ─── Open-Meteo weather code → label + icon ───────────────────────────────────
@@ -122,11 +123,28 @@ export function WeatherWidget() {
   if (state.status === "idle" || state.status === "locating" || state.status === "loading") {
     return (
       <div className="flex h-full flex-col rounded-lg border border-border bg-card p-5">
-        <h3 className="mb-3 text-sm font-semibold text-foreground/80">Local Weather</h3>
-        <div className="flex flex-1 items-center gap-2 text-sm text-muted-foreground">
-          <div className="h-4 w-4 animate-spin rounded-full border-2 border-primary border-t-transparent" />
-          {state.status === "locating" ? "Getting your location…" : "Loading weather…"}
+        <div className="mb-4 flex items-center justify-between">
+          <Skeleton className="h-4 w-28" />
         </div>
+        <div className="mb-3 flex items-center gap-1.5">
+          <Skeleton className="h-3 w-3 rounded-full" />
+          <Skeleton className="h-3 w-32" />
+        </div>
+        <div className="flex items-center gap-4">
+          <Skeleton className="h-12 w-12 shrink-0 rounded-full" />
+          <div className="flex flex-col gap-2">
+            <Skeleton className="h-9 w-24" />
+            <Skeleton className="h-3.5 w-20" />
+          </div>
+        </div>
+        <div className="mt-5 flex items-center gap-1.5">
+          <Skeleton className="h-3 w-3 rounded" />
+          <Skeleton className="h-3 w-24" />
+        </div>
+        <p className="mt-3 flex items-center gap-1.5 text-xs text-muted-foreground/60">
+          <span className="h-3 w-3 animate-spin rounded-full border border-muted-foreground/40 border-t-transparent inline-block" />
+          {state.status === "locating" ? "Getting your location…" : "Loading weather…"}
+        </p>
       </div>
     );
   }
