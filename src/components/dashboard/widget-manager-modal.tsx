@@ -1,6 +1,6 @@
 "use client";
 
-import { CalendarDays, ClipboardList, Cloud } from "lucide-react";
+import { CalendarDays, ClipboardList, Cloud, MessageSquare } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   Dialog, DialogBody, DialogContent,
@@ -20,6 +20,12 @@ export const WIDGET_REGISTRY: {
     label:       "Upcoming Events",
     description: "Scheduled games, practices, and more",
     icon:        <CalendarDays className="h-4 w-4" />,
+  },
+  {
+    id:          "quick-chat",
+    label:       "Quick chat",
+    description: "Team and direct messages without opening the full panel",
+    icon:        <MessageSquare className="h-4 w-4" />,
   },
   {
     id:          "weather",

@@ -438,7 +438,7 @@ export function EventBrowser({ events, teams, rosters, lineups, teamRoles, userI
           <select
             value={sort}
             onChange={(e) => setSort(e.target.value as SortKey)}
-            className="h-10 rounded-md border border-input bg-background px-3 text-sm shadow-xs focus:outline-none focus:ring-1 focus:ring-ring"
+            className="h-10 rounded-md border border-input bg-background pl-3 pr-10 text-sm shadow-xs focus:outline-none focus:ring-1 focus:ring-ring"
           >
             <option value="date-asc">Soonest first</option>
             <option value="date-desc">Latest first</option>

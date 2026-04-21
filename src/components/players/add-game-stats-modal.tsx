@@ -188,7 +188,7 @@ export function AddGameStatsModal({
                     value={form.lineup_id ?? ""}
                     onChange={(e) => handleLineupChange(e.target.value)}
                     required
-                    className="flex h-9 w-full rounded-md border border-input bg-background px-3 py-1 text-sm shadow-xs transition-colors focus:outline-none focus:ring-1 focus:ring-ring"
+                    className="flex h-9 w-full rounded-md border border-input bg-background pl-3 pr-10 py-1 text-sm shadow-xs transition-colors focus:outline-none focus:ring-1 focus:ring-ring"
                   >
                     <option value="">Select a lineup…</option>
                     {lineups.map((l) => (

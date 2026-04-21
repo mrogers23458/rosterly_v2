@@ -24,6 +24,34 @@ async function getClient() {
   return { supabase, user };
 }
 
+// ─── Load (e.g. messages flyout) ─────────────────────────────────────────────
+
+export async function getTeamMessages(
+  teamId: string,
+): Promise<{ data?: TeamMessage[]; error?: string }> {
+  const { supabase, user } = await getClient();
+  if (!user) return { error: "You must be signed in." };
+
+  const { data: membership } = await supabase
+    .from("team_members")
+    .select("team_id")
+    .eq("team_id", teamId)
+    .eq("user_id", user.id)
+    .maybeSingle();
+
+  if (!membership) return { error: "You are not a member of this team." };
+
+  const { data: msgRows, error } = await supabase
+    .from("team_messages")
+    .select("*")
+    .eq("team_id", teamId)
+    .order("created_at", { ascending: true })
+    .limit(100);
+
+  if (error) return { error: error.message };
+  return { data: (msgRows ?? []) as TeamMessage[] };
+}
+
 // ─── Send ─────────────────────────────────────────────────────────────────────
 
 export async function sendTeamMessage(

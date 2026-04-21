@@ -126,3 +126,17 @@ model Player {
 
   @@map("players")
 }
+
+/// 1:1 messages between users who share at least one team (see RLS).
+model DirectMessage {
+  id          String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  senderId    String   @map("sender_id") @db.Uuid
+  recipientId String   @map("recipient_id") @db.Uuid
+  senderName  String   @map("sender_name")
+  body        String
+  createdAt   DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  @@index([senderId, recipientId, createdAt(sort: Asc)])
+  @@index([recipientId, senderId, createdAt(sort: Asc)])
+  @@map("direct_messages")
+}

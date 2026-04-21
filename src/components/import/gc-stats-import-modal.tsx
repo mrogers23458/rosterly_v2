@@ -239,7 +239,7 @@ function MatchStep({
           id="match-team"
           value={selectedTeamId}
           onChange={(e) => onTeamChange(e.target.value)}
-          className="h-9 w-full rounded-md border border-input bg-background px-3 text-sm shadow-xs focus:outline-none focus:ring-1 focus:ring-ring"
+          className="h-9 w-full rounded-md border border-input bg-background pl-3 pr-10 text-sm shadow-xs focus:outline-none focus:ring-1 focus:ring-ring"
         >
           <option value="">— All teams —</option>
           {teams.map((t) => (
@@ -301,7 +301,7 @@ function MatchStep({
                       onChange={(e) =>
                         onMatchChange(i, e.target.value || null)
                       }
-                      className="h-8 w-full rounded-md border border-input bg-background px-2 text-xs shadow-xs focus:outline-none focus:ring-1 focus:ring-ring"
+                      className="h-8 w-full rounded-md border border-input bg-background pl-2 pr-9 text-xs shadow-xs focus:outline-none focus:ring-1 focus:ring-ring"
                     >
                       <option value="">— Skip player —</option>
                       {scopedPlayers.map((sp) => (

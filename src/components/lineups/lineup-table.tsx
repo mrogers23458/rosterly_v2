@@ -205,7 +205,7 @@ export function InnSelect({ value, onChange }: { value: string; onChange: (v: st
     <select
       value={value}
       onChange={(e) => onChange(e.target.value)}
-      className="block w-full rounded border border-input bg-background px-1 py-1 text-xs leading-tight focus:outline-none focus:ring-1 focus:ring-ring"
+      className="block w-full rounded border border-input bg-background pl-1 pr-7 py-1 text-xs leading-tight focus:outline-none focus:ring-1 focus:ring-ring"
     >
       {LINEUP_POSITIONS.map((p) => <option key={p} value={p}>{p}</option>)}
     </select>

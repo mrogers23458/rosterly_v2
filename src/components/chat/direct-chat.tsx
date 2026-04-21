@@ -2,40 +2,44 @@
 
 import { Send, Trash2 } from "lucide-react";
 import { useEffect, useRef, useState, useTransition } from "react";
-import { deleteTeamMessage, sendTeamMessage, type TeamMessage } from "@/app/actions/messages";
+import {
+  deleteDirectMessage,
+  sendDirectMessage,
+  type DirectMessage,
+} from "@/app/actions/direct-messages";
 import { Button } from "@/components/ui/button";
 import { createClient } from "@/utils/supabase/client";
 import { cn } from "@/lib/utils";
 import type { RealtimeChannel } from "@supabase/supabase-js";
-
-// ─── Helpers ─────────────────────────────────────────────────────────────────
 
 function formatTime(ts: string) {
   const d = new Date(ts);
   const now = new Date();
   const isToday =
     d.getFullYear() === now.getFullYear() &&
-    d.getMonth()    === now.getMonth()    &&
-    d.getDate()     === now.getDate();
+    d.getMonth() === now.getMonth() &&
+    d.getDate() === now.getDate();
 
   if (isToday) {
     return d.toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" });
   }
-  return d.toLocaleDateString("en-US", { month: "short", day: "numeric" }) +
+  return (
+    d.toLocaleDateString("en-US", { month: "short", day: "numeric" }) +
     " · " +
-    d.toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" });
+    d.toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" })
+  );
 }
 
 function getInitials(name: string) {
   return name
     .split(" ")
     .map((w) => w[0])
+    .filter(Boolean)
     .slice(0, 2)
     .join("")
     .toUpperCase();
 }
 
-// Deterministic pastel color from name
 const AVATAR_COLORS = [
   "bg-blue-200 text-blue-800",
   "bg-green-200 text-green-800",
@@ -53,8 +57,6 @@ function avatarColor(name: string) {
   return AVATAR_COLORS[Math.abs(hash) % AVATAR_COLORS.length];
 }
 
-// ─── Message bubble ───────────────────────────────────────────────────────────
-
 function MessageBubble({
   msg,
   isOwn,
@@ -63,7 +65,7 @@ function MessageBubble({
   onDelete,
   deleting,
 }: {
-  msg:        TeamMessage;
+  msg:        DirectMessage;
   isOwn:      boolean;
   showHeader: boolean;
   canDelete:  boolean;
@@ -72,8 +74,13 @@ function MessageBubble({
 }) {
   return (
     <div className={cn("group flex items-end gap-2", isOwn && "flex-row-reverse")}>
-      {/* Avatar — only shown on the first message of a run */}
-      <div className={cn("flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-[10px] font-bold", avatarColor(msg.sender_name), !showHeader && "invisible")}>
+      <div
+        className={cn(
+          "flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-[10px] font-bold",
+          avatarColor(msg.sender_name),
+          !showHeader && "invisible",
+        )}
+      >
         {getInitials(msg.sender_name)}
       </div>
 
@@ -85,9 +92,9 @@ function MessageBubble({
         )}
 
         <div className="flex items-end gap-1.5">
-          {/* Delete button — appears on hover, own side only */}
           {canDelete && (
             <button
+              type="button"
               onClick={onDelete}
               disabled={deleting}
               className={cn(
@@ -122,15 +129,13 @@ function MessageBubble({
   );
 }
 
-// ─── Date divider ─────────────────────────────────────────────────────────────
-
 function DateDivider({ ts }: { ts: string }) {
   const d = new Date(ts);
   const now = new Date();
   const isToday =
     d.getFullYear() === now.getFullYear() &&
-    d.getMonth()    === now.getMonth()    &&
-    d.getDate()     === now.getDate();
+    d.getMonth() === now.getMonth() &&
+    d.getDate() === now.getDate();
 
   const label = isToday
     ? "Today"
@@ -145,43 +150,45 @@ function DateDivider({ ts }: { ts: string }) {
   );
 }
 
-// ─── Main component ───────────────────────────────────────────────────────────
+function channelIdForPair(a: string, b: string) {
+  return `direct-chat-${[a, b].sort().join("-")}`;
+}
 
 type Props = {
-  teamId:          string;
-  currentUserId:   string;
-  initialMessages: TeamMessage[];
+  peerUserId:       string;
+  peerDisplayName:  string;
+  currentUserId:    string;
+  initialMessages:  DirectMessage[];
 };
 
-export function TeamChat({ teamId, currentUserId, initialMessages }: Props) {
-  const [messages,   setMessages]   = useState<TeamMessage[]>(initialMessages);
-  const [input,      setInput]      = useState("");
-  const [sendError,  setSendError]  = useState<string | null>(null);
+export function DirectChat({
+  peerUserId,
+  peerDisplayName,
+  currentUserId,
+  initialMessages,
+}: Props) {
+  const [messages, setMessages] = useState<DirectMessage[]>(initialMessages);
+  const [input, setInput] = useState("");
+  const [sendError, setSendError] = useState<string | null>(null);
   const [deletingId, setDeletingId] = useState<string | null>(null);
-  const [isPending,  startTransition] = useTransition();
+  const [isPending, startTransition] = useTransition();
 
-  const bottomRef     = useRef<HTMLDivElement>(null);
-  const inputRef      = useRef<HTMLTextAreaElement>(null);
+  const bottomRef = useRef<HTMLDivElement>(null);
   const isFirstRender = useRef(true);
-  // Keep a ref to the channel so handleSend / handleDelete can broadcast on it
-  const channelRef    = useRef<RealtimeChannel | null>(null);
+  const channelRef = useRef<RealtimeChannel | null>(null);
 
   useEffect(() => {
     setMessages(initialMessages);
-  }, [initialMessages]);
+  }, [peerUserId, initialMessages]);
 
-  // ── Realtime — Broadcast ───────────────────────────────────────────────────
-  // Broadcast is designed for exactly this use-case: the sender pushes the
-  // message to the channel after a successful DB insert and every other
-  // subscriber receives it instantly via WebSocket.  No replication lag, no
-  // RLS evaluation overhead, no REPLICA IDENTITY requirements.
   useEffect(() => {
     const supabase = createClient();
+    const chName = channelIdForPair(currentUserId, peerUserId);
 
     const channel = supabase
-      .channel(`team-chat-${teamId}`)
+      .channel(chName)
       .on("broadcast", { event: "message" }, ({ payload }) => {
-        const msg = payload.msg as TeamMessage;
+        const msg = payload.msg as DirectMessage;
         setMessages((prev) => {
           if (prev.some((m) => m.id === msg.id)) return prev;
           return [...prev, msg];
@@ -193,14 +200,12 @@ export function TeamChat({ teamId, currentUserId, initialMessages }: Props) {
       .subscribe();
 
     channelRef.current = channel;
-
     return () => {
       supabase.removeChannel(channel);
       channelRef.current = null;
     };
-  }, [teamId]);
+  }, [peerUserId, currentUserId]);
 
-  // ── Auto-scroll ────────────────────────────────────────────────────────────
   useEffect(() => {
     if (isFirstRender.current) {
       bottomRef.current?.scrollIntoView();
@@ -210,7 +215,6 @@ export function TeamChat({ teamId, currentUserId, initialMessages }: Props) {
     }
   }, [messages]);
 
-  // ── Send ───────────────────────────────────────────────────────────────────
   function handleSend() {
     const body = input.trim();
     if (!body || isPending) return;
@@ -218,30 +222,25 @@ export function TeamChat({ teamId, currentUserId, initialMessages }: Props) {
     setSendError(null);
     setInput("");
 
-    // Optimistic update so the sender sees their message immediately
-    const optimistic: TeamMessage = {
-      id:          `optimistic-${Date.now()}`,
-      team_id:     teamId,
-      user_id:     currentUserId,
-      sender_name: "You",
+    const optimistic: DirectMessage = {
+      id:            `optimistic-${Date.now()}`,
+      sender_id:     currentUserId,
+      recipient_id:  peerUserId,
+      sender_name:   "You",
       body,
-      created_at:  new Date().toISOString(),
+      created_at:    new Date().toISOString(),
     };
     setMessages((prev) => [...prev, optimistic]);
 
     startTransition(async () => {
-      const res = await sendTeamMessage(teamId, body);
+      const res = await sendDirectMessage(peerUserId, body);
       if (res.error) {
         setMessages((prev) => prev.filter((m) => m.id !== optimistic.id));
         setSendError(res.error);
         setInput(body);
       } else {
-        // Replace the optimistic placeholder with the real persisted message
-        const saved = res.data as TeamMessage;
-        setMessages((prev) =>
-          prev.map((m) => (m.id === optimistic.id ? saved : m)),
-        );
-        // Push to every other subscriber via Broadcast
+        const saved = res.data as DirectMessage;
+        setMessages((prev) => prev.map((m) => (m.id === optimistic.id ? saved : m)));
         channelRef.current?.send({
           type:    "broadcast",
           event:   "message",
@@ -258,12 +257,11 @@ export function TeamChat({ teamId, currentUserId, initialMessages }: Props) {
     }
   }
 
-  // ── Delete ─────────────────────────────────────────────────────────────────
   function handleDelete(messageId: string) {
     setDeletingId(messageId);
     setMessages((prev) => prev.filter((m) => m.id !== messageId));
     startTransition(async () => {
-      const res = await deleteTeamMessage(messageId, teamId);
+      const res = await deleteDirectMessage(messageId);
       setDeletingId(null);
       if (res.error) {
         setSendError(res.error);
@@ -277,7 +275,6 @@ export function TeamChat({ teamId, currentUserId, initialMessages }: Props) {
     });
   }
 
-  // ── Render with date dividers and sender-run grouping ──────────────────────
   const rendered: React.ReactNode[] = [];
   let lastDateKey = "";
 
@@ -292,16 +289,16 @@ export function TeamChat({ teamId, currentUserId, initialMessages }: Props) {
     const prev = messages[i - 1];
     const showHeader =
       !prev ||
-      prev.user_id !== msg.user_id ||
+      prev.sender_id !== msg.sender_id ||
       new Date(msg.created_at).getTime() - new Date(prev.created_at).getTime() > 5 * 60 * 1000;
 
     rendered.push(
       <MessageBubble
         key={msg.id}
         msg={msg}
-        isOwn={msg.user_id === currentUserId}
+        isOwn={msg.sender_id === currentUserId}
         showHeader={showHeader}
-        canDelete={msg.user_id === currentUserId}
+        canDelete={msg.sender_id === currentUserId}
         onDelete={() => handleDelete(msg.id)}
         deleting={deletingId === msg.id}
       />,
@@ -309,14 +306,18 @@ export function TeamChat({ teamId, currentUserId, initialMessages }: Props) {
   });
 
   return (
-    <div className="flex h-full flex-col">
-      {/* ── Message list ─────────────────────────────────────────────── */}
-      <div className="flex-1 overflow-y-auto px-4 py-4">
+    <div className="flex h-full min-h-0 flex-col">
+      <div className="border-b border-border px-4 py-2.5">
+        <p className="text-xs font-medium text-muted-foreground">Direct message</p>
+        <p className="truncate text-sm font-semibold">{peerDisplayName}</p>
+      </div>
+
+      <div className="min-h-0 flex-1 overflow-y-auto px-4 py-4">
         {messages.length === 0 ? (
-          <div className="flex h-full flex-col items-center justify-center gap-2 text-center text-muted-foreground">
-            <div className="text-4xl">💬</div>
+          <div className="flex h-full min-h-[160px] flex-col items-center justify-center gap-2 text-center text-muted-foreground">
+            <div className="text-3xl">👋</div>
             <p className="text-sm font-medium">No messages yet</p>
-            <p className="text-xs">Be the first to say something to the team!</p>
+            <p className="max-w-[240px] text-xs">Say hi to {peerDisplayName}.</p>
           </div>
         ) : (
           <div className="flex flex-col gap-1.5">{rendered}</div>
@@ -324,18 +325,14 @@ export function TeamChat({ teamId, currentUserId, initialMessages }: Props) {
         <div ref={bottomRef} />
       </div>
 
-      {/* ── Composer ─────────────────────────────────────────────────── */}
       <div className="border-t border-border bg-background px-4 py-3">
-        {sendError && (
-          <p className="mb-2 text-xs text-destructive">{sendError}</p>
-        )}
+        {sendError && <p className="mb-2 text-xs text-destructive">{sendError}</p>}
         <div className="flex items-end gap-2">
           <textarea
-            ref={inputRef}
             value={input}
             onChange={(e) => setInput(e.target.value)}
             onKeyDown={handleKeyDown}
-            placeholder="Message the team… (Enter to send, Shift+Enter for new line)"
+            placeholder={`Message ${peerDisplayName}…`}
             rows={1}
             className="flex-1 resize-none rounded-lg border border-input bg-muted/30 px-3 py-2 text-sm leading-relaxed placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-ring"
             style={{ maxHeight: "120px", overflowY: "auto" }}
@@ -346,6 +343,7 @@ export function TeamChat({ teamId, currentUserId, initialMessages }: Props) {
             }}
           />
           <Button
+            type="button"
             size="icon"
             onClick={handleSend}
             disabled={!input.trim() || isPending}

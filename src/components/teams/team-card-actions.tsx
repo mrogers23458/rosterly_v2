@@ -84,7 +84,7 @@ export function TeamCardActions({
         )}
       </div>
 
-      {canEdit   && <EditTeamModal   team={team} open={editOpen}   onOpenChange={setEditOpen} />}
+      {canEdit && <EditTeamModal team={team} open={editOpen} onOpenChange={setEditOpen} />}
       {canDelete && <DeleteTeamModal team={team} open={deleteOpen} onOpenChange={setDeleteOpen} />}
     </>
   );

@@ -1,4 +1,4 @@
-import { ArrowLeft, LayoutList, MessageSquare } from "lucide-react";
+import { ArrowLeft, LayoutList } from "lucide-react";
 import Link from "next/link";
 import { cookies } from "next/headers";
 import { notFound } from "next/navigation";
@@ -10,6 +10,8 @@ import { RosterCardActions } from "@/components/rosters/roster-card-actions";
 import { RostersArchivedSection } from "@/components/rosters/rosters-archived-section";
 import { RostersPageToolbar } from "@/components/rosters/rosters-page-toolbar";
 import { TeamCardActions } from "@/components/teams/team-card-actions";
+import { TeamChatOpener } from "@/components/teams/team-chat-opener";
+import { TeamDetailAccordions } from "@/components/teams/team-detail-accordions";
 import { TeamMembersPanel } from "@/components/teams/team-members-panel";
 import { Badge } from "@/components/ui/badge";
 import { SortableCardGrid } from "@/components/ui/sortable-card-grid";
@@ -78,10 +80,13 @@ export default async function TeamDetailPage({ params }: Props) {
   const rosterNameMap: Record<string, string> = {};
   for (const r of typedRosters) rosterNameMap[r.id] = r.name;
 
-  // Permission flags for this team
   const canCreateRoster  = can(userRole, "roster:create");
   const canImport        = can(userRole, "import:use");
   const canCreateLineup  = can(userRole, "lineup:create");
+
+  const rostersDesc =
+    "Batting rosters for this team." +
+    (canCreateRoster ? " Create new or import from GameChanger." : "");
 
   return (
     <div className="px-4 py-8 sm:px-6 md:px-8">
@@ -91,10 +96,8 @@ export default async function TeamDetailPage({ params }: Props) {
         All teams
       </Link>
 
-      {/* Team header */}
       <div className="mb-8 flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
-        <div className="flex items-start gap-4">
-          {/* Team logo */}
+        <div className="flex min-w-0 flex-1 items-start gap-4">
           {typedTeam.logo_url ? (
             /* eslint-disable-next-line @next/next/no-img-element */
             <img
@@ -107,8 +110,8 @@ export default async function TeamDetailPage({ params }: Props) {
               {typedTeam.name.charAt(0).toUpperCase()}
             </div>
           )}
-          <div>
-            <div className="flex flex-wrap items-center gap-2">
+          <div className="min-w-0 flex-1">
+            <div className="flex flex-wrap items-center gap-x-2 gap-y-2">
               <h1 className="text-2xl font-bold tracking-tight sm:text-3xl">{typedTeam.name}</h1>
               <Badge variant={typedTeam.is_archived ? "muted" : typedTeam.is_active ? "success" : "muted"}>
                 {typedTeam.is_archived ? "Archived" : typedTeam.is_active ? "Active" : "Inactive"}
@@ -116,6 +119,9 @@ export default async function TeamDetailPage({ params }: Props) {
               <Badge variant="outline" className="text-xs">
                 Your role: {ROLE_LABELS[userRole]}
               </Badge>
+              <span className="inline-flex shrink-0 items-center">
+                <TeamCardActions team={typedTeam} userRole={userRole} />
+              </span>
             </div>
             <p className="mt-1.5 text-sm text-muted-foreground">
               {[typedTeam.year, typedTeam.season, typedTeam.division, typedTeam.age_group, typedTeam.team_type]
@@ -124,123 +130,110 @@ export default async function TeamDetailPage({ params }: Props) {
             </p>
           </div>
         </div>
-        <div className="shrink-0 flex items-center gap-2">
-          <Link
-            href={`/teams/${id}/chat`}
-            className="inline-flex items-center gap-1.5 rounded-md border border-border bg-background px-3 py-1.5 text-sm font-medium text-foreground shadow-xs transition-colors hover:bg-muted"
-          >
-            <MessageSquare className="h-4 w-4" />
-            Team Chat
-          </Link>
-          <TeamCardActions team={typedTeam} userRole={userRole} />
+        <div className="flex shrink-0 sm:justify-end">
+          <TeamChatOpener teamId={id} teamName={typedTeam.name} />
         </div>
       </div>
 
-      {/* ── Rosters ──────────────────────────────────────── */}
-      <div className="mb-10">
-        <div className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
-          <div>
-            <h2 className="text-lg font-semibold">Rosters</h2>
-            <p className="mt-1 text-sm text-muted-foreground">
-              Batting rosters for this team.{canCreateRoster && " Create new or import from GameChanger."}
-            </p>
-          </div>
-          <RostersPageToolbar
-            key={id}
-            teams={typedAllTeams}
-            defaultTeamId={id}
-            importTeamId={canImport ? id : undefined}
-            canCreate={canCreateRoster}
-            canImport={canImport}
-          />
-        </div>
-
-        {typedRosters.length === 0 && (
-          <p className="mb-4 text-sm text-muted-foreground">
-            {canCreateRoster
-              ? "No rosters yet. Use the buttons above to create one or import from GameChanger."
-              : "No rosters yet."}
-          </p>
-        )}
-
-        <SortableCardGrid
-          storageKey={`rosters-${id}`}
-          items={activeRosters.map((roster) => ({
-            id:   roster.id,
-            node: <RosterCard roster={roster} teamId={id} allTeams={typedAllTeams} userRole={userRole} />,
-          }))}
-        />
-
-        <RostersArchivedSection rosters={archivedRosters} teamId={id} teams={typedAllTeams} userRole={userRole} />
-      </div>
-
-      {/* ── Game Lineups ──────────────────────────────────── */}
-      <div>
-        <div className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
-          <div>
-            <h2 className="text-lg font-semibold">Game Lineups</h2>
-            <p className="mt-1 text-sm text-muted-foreground">
-              Game-specific lineups and batting orders.
-            </p>
-          </div>
-          <LineupsPageToolbar
-            key={id}
-            teams={typedAllTeams}
-            rosters={typedRosters.filter((r) => !r.is_archived)}
-            rosterPlayersMap={rosterPlayersMap}
-            initialTeamId={id}
-            canCreate={canCreateLineup}
-            canImport={canImport}
-          />
-        </div>
-
-        {typedLineups.length === 0 && (
-          <p className="mb-4 text-sm text-muted-foreground">
-            {canCreateLineup
-              ? "No lineups yet. Use the button above to create your first game lineup."
-              : "No lineups yet."}
-          </p>
-        )}
-
-        <SortableCardGrid
-          storageKey={`lineups-${id}`}
-          items={activeLineups.map((lineup) => ({
-            id:   lineup.id,
-            node: (
-              <LineupCard
-                lineup={lineup}
-                rosterName={lineup.roster_id ? rosterNameMap[lineup.roster_id] : undefined}
-                activeRosters={rosterActiveOnly}
-                rosterPlayersMap={rosterPlayersMap}
-                userRole={userRole}
+      <TeamDetailAccordions
+        rosterCount={typedRosters.length}
+        lineupCount={typedLineups.length}
+        memberCount={teamMembers?.length ?? 0}
+        rostersDesc={rostersDesc}
+        lineupsDesc="Game-specific lineups and batting orders."
+        membersDesc="People with access to this team. Invite coaches and set roles."
+        rostersSlot={(
+          <>
+            <div className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+              <RostersPageToolbar
+                key={id}
+                teams={typedAllTeams}
+                defaultTeamId={id}
+                importTeamId={canImport ? id : undefined}
+                canCreate={canCreateRoster}
+                canImport={canImport}
               />
-            ),
-          }))}
-        />
+            </div>
 
-        <LineupsArchivedSection
-          lineups={archivedLineups}
-          rosterNameMap={rosterNameMap}
-          activeRosters={rosterActiveOnly}
-          rosterPlayersMap={rosterPlayersMap}
-          userRole={userRole}
-        />
-      </div>
+            {typedRosters.length === 0 && (
+              <p className="mb-4 text-sm text-muted-foreground">
+                {canCreateRoster
+                  ? "No rosters yet. Use the buttons above to create one or import from GameChanger."
+                  : "No rosters yet."}
+              </p>
+            )}
 
-      {/* ── Team Members ──────────────────────────────────────── */}
-      <div className="mt-12 border-t border-border pt-10">
-        <TeamMembersPanel
-          teamId={id}
-          members={teamMembers ?? []}
-          pendingInvitations={pendingInvites ?? []}
-          currentRole={userRole}
-        />
-      </div>
+            <SortableCardGrid
+              storageKey={`rosters-${id}`}
+              items={activeRosters.map((roster) => ({
+                id:   roster.id,
+                node: <RosterCard roster={roster} teamId={id} allTeams={typedAllTeams} userRole={userRole} />,
+              }))}
+            />
+
+            <RostersArchivedSection rosters={archivedRosters} teamId={id} teams={typedAllTeams} userRole={userRole} />
+          </>
+        )}
+        lineupsSlot={(
+          <>
+            <div className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+              <LineupsPageToolbar
+                key={id}
+                teams={typedAllTeams}
+                rosters={typedRosters.filter((r) => !r.is_archived)}
+                rosterPlayersMap={rosterPlayersMap}
+                initialTeamId={id}
+                canCreate={canCreateLineup}
+                canImport={canImport}
+              />
+            </div>
+
+            {typedLineups.length === 0 && (
+              <p className="mb-4 text-sm text-muted-foreground">
+                {canCreateLineup
+                  ? "No lineups yet. Use the button above to create your first game lineup."
+                  : "No lineups yet."}
+              </p>
+            )}
+
+            <SortableCardGrid
+              storageKey={`lineups-${id}`}
+              items={activeLineups.map((lineup) => ({
+                id:   lineup.id,
+                node: (
+                  <LineupCard
+                    lineup={lineup}
+                    rosterName={lineup.roster_id ? rosterNameMap[lineup.roster_id] : undefined}
+                    activeRosters={rosterActiveOnly}
+                    rosterPlayersMap={rosterPlayersMap}
+                    userRole={userRole}
+                  />
+                ),
+              }))}
+            />
+
+            <LineupsArchivedSection
+              lineups={archivedLineups}
+              rosterNameMap={rosterNameMap}
+              activeRosters={rosterActiveOnly}
+              rosterPlayersMap={rosterPlayersMap}
+              userRole={userRole}
+            />
+          </>
+        )}
+        membersSlot={(
+          <TeamMembersPanel
+            teamId={id}
+            members={teamMembers ?? []}
+            pendingInvitations={pendingInvites ?? []}
+            currentRole={userRole}
+            hideHeading
+          />
+        )}
+      />
     </div>
   );
 }
-
-// ─── Roster card ──────────────────────────────────────────────────────────────
 
 function RosterCard({
   roster, teamId, allTeams, userRole,
@@ -276,8 +269,6 @@ function RosterCard({
     </div>
   );
 }
-
-// ─── Lineup card ──────────────────────────────────────────────────────────────
 
 function formatDate(dateStr: string) {
   const d = new Date(dateStr + "T00:00:00");

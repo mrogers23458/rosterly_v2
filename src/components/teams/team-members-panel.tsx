@@ -34,6 +34,8 @@ interface Props {
   members:            TeamMemberWithEmail[];
   pendingInvitations: PendingInvitation[];
   currentRole:        TeamRole;
+  /** When true, hides the “Team Members” heading (e.g. accordion provides the title). */
+  hideHeading?: boolean;
 }
 
 export function TeamMembersPanel({
@@ -41,6 +43,7 @@ export function TeamMembersPanel({
   members: initialMembers,
   pendingInvitations: initialPending,
   currentRole,
+  hideHeading = false,
 }: Props) {
   const [members, setMembers]         = useState(initialMembers);
   const [pending, setPending]         = useState(initialPending);
@@ -113,11 +116,13 @@ export function TeamMembersPanel({
 
   return (
     <section>
-      <div className="mb-4 flex items-center gap-2">
-        <Users className="h-4 w-4 text-muted-foreground" />
-        <h2 className="text-lg font-semibold">Team Members</h2>
-        <Badge variant="muted" className="ml-1">{members.length}</Badge>
-      </div>
+      {!hideHeading && (
+        <div className="mb-4 flex items-center gap-2">
+          <Users className="h-4 w-4 text-muted-foreground" />
+          <h2 className="text-lg font-semibold">Team Members</h2>
+          <Badge variant="muted" className="ml-1">{members.length}</Badge>
+        </div>
+      )}
 
       {/* Active members list */}
       <div className="mb-4 divide-y divide-border rounded-lg border border-border">

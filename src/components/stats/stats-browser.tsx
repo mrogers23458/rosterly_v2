@@ -478,7 +478,7 @@ export function StatsBrowser({ aggregated, teams, rosters, players }: Props) {
             <select
               value={teamFilter}
               onChange={(e) => setTeamFilter(e.target.value)}
-              className="h-9 rounded-md border border-input bg-background px-3 text-sm shadow-xs focus:outline-none focus:ring-1 focus:ring-ring"
+              className="h-9 rounded-md border border-input bg-background pl-3 pr-10 text-sm shadow-xs focus:outline-none focus:ring-1 focus:ring-ring"
             >
               <option value="all">All teams</option>
               {teams.map((t) => (

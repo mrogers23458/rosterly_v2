@@ -61,7 +61,7 @@ function TeamSelectorField({
         id="lineup-team"
         value={selectedTeamId}
         onChange={(e) => onChange(e.target.value)}
-        className="flex h-9 w-full rounded-md border border-input bg-background px-3 py-1 text-sm shadow-xs transition-colors focus:outline-none focus:ring-1 focus:ring-ring"
+        className="flex h-9 w-full rounded-md border border-input bg-background pl-3 pr-10 py-1 text-sm shadow-xs transition-colors focus:outline-none focus:ring-1 focus:ring-ring"
       >
         <option value="">No team</option>
         {allTeams.filter((t) => !t.is_archived).map((t) => (

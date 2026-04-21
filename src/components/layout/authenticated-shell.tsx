@@ -9,6 +9,7 @@ import {
   LifeBuoy,
   LogOut,
   Menu,
+  MessageSquare,
   UserCircle2,
   Users,
   X,
@@ -17,6 +18,8 @@ import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useState } from "react";
 import { RosterlyLogo } from "@/components/branding/rosterly-logo";
+import { ChatFlyoutProvider, useChatFlyout } from "@/components/chat/chat-flyout-context";
+import { MessagesFlyout } from "@/components/chat/messages-flyout";
 import { ContactSupportModal } from "@/components/layout/contact-support-modal";
 import { NotificationsBell } from "@/components/layout/notifications-bell";
 import { cn } from "@/lib/utils";
@@ -79,21 +82,21 @@ function SidebarContents({
   onClose,
   onLogout,
   onOpenSupport,
+  onOpenMessages,
 }: {
   pathname: string;
   onClose: () => void;
   onLogout: () => void;
   onOpenSupport: () => void;
+  onOpenMessages: () => void;
 }) {
   return (
     <div className="flex h-full flex-col">
-      {/* Logo row */}
       <div className="flex h-14 items-center gap-2.5 border-b border-border px-4">
         <RosterlyLogo size={36} />
         <span className="text-base font-bold text-primary">Rosterly</span>
       </div>
 
-      {/* Nav links */}
       <nav className="flex-1 space-y-0.5 overflow-y-auto p-2">
         {navItems.map((item) => {
           const active = item.matchFn(pathname);
@@ -117,6 +120,17 @@ function SidebarContents({
         <button
           type="button"
           onClick={() => {
+            onOpenMessages();
+            onClose();
+          }}
+          className="flex w-full items-center gap-3 rounded-md px-3 py-2.5 text-sm font-medium text-foreground/70 transition-colors hover:bg-muted hover:text-foreground"
+        >
+          <MessageSquare className="h-4 w-4 shrink-0" />
+          Messages
+        </button>
+        <button
+          type="button"
+          onClick={() => {
             onOpenSupport();
             onClose();
           }}
@@ -127,7 +141,6 @@ function SidebarContents({
         </button>
       </nav>
 
-      {/* Logout */}
       <div className="border-t border-border p-2">
         <div className="mb-1 flex items-center justify-between px-3 py-1">
           <span className="text-xs text-muted-foreground">Notifications</span>
@@ -145,11 +158,12 @@ function SidebarContents({
   );
 }
 
-export function AuthenticatedShell({ children }: { children: React.ReactNode }) {
+function AuthenticatedShellInner({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const router = useRouter();
   const [mobileOpen, setMobileOpen] = useState(false);
   const [supportOpen, setSupportOpen] = useState(false);
+  const { setOpen: setChatFlyoutOpen } = useChatFlyout();
 
   async function handleLogout() {
     const supabase = createClient();
@@ -163,12 +177,14 @@ export function AuthenticatedShell({ children }: { children: React.ReactNode }) 
     onClose: () => setMobileOpen(false),
     onLogout: handleLogout,
     onOpenSupport: () => setSupportOpen(true),
+    onOpenMessages: () => setChatFlyoutOpen(true),
   };
 
   return (
     <div className="flex min-h-screen bg-background">
       <ContactSupportModal open={supportOpen} onOpenChange={setSupportOpen} />
-      {/* ── Mobile overlay ── */}
+      <MessagesFlyout />
+
       <div
         className={cn(
           "fixed inset-0 z-30 bg-black/40 transition-opacity duration-200 md:hidden",
@@ -178,7 +194,6 @@ export function AuthenticatedShell({ children }: { children: React.ReactNode }) 
         aria-hidden
       />
 
-      {/* ── Mobile drawer ── */}
       <aside
         className={cn(
           "fixed left-0 top-0 z-40 h-full w-64 border-r border-border bg-white transition-transform duration-200 md:hidden",
@@ -195,14 +210,11 @@ export function AuthenticatedShell({ children }: { children: React.ReactNode }) 
         <SidebarContents {...sidebarProps} />
       </aside>
 
-      {/* ── Desktop sidebar (permanent, md+) ── */}
       <aside className="fixed left-0 top-0 hidden h-full w-64 flex-col border-r border-border bg-white md:flex">
         <SidebarContents {...sidebarProps} />
       </aside>
 
-      {/* ── Main content area ── */}
       <div className="flex min-h-screen w-full flex-col md:pl-64">
-        {/* Mobile top bar */}
         <header className="sticky top-0 z-20 flex h-14 items-center gap-2 border-b border-border bg-white px-4 md:hidden">
           <button
             onClick={() => setMobileOpen(true)}
@@ -213,7 +225,15 @@ export function AuthenticatedShell({ children }: { children: React.ReactNode }) 
           </button>
           <RosterlyLogo size={30} />
           <span className="text-base font-bold text-primary">Rosterly</span>
-          <div className="ml-auto">
+          <div className="ml-auto flex items-center gap-1">
+            <button
+              type="button"
+              onClick={() => setChatFlyoutOpen(true)}
+              className="rounded p-2 text-foreground/60 hover:text-foreground"
+              aria-label="Open messages"
+            >
+              <MessageSquare className="h-5 w-5" />
+            </button>
             <NotificationsBell />
           </div>
         </header>
@@ -221,5 +241,13 @@ export function AuthenticatedShell({ children }: { children: React.ReactNode }) 
         <main className="flex-1">{children}</main>
       </div>
     </div>
+  );
+}
+
+export function AuthenticatedShell({ children }: { children: React.ReactNode }) {
+  return (
+    <ChatFlyoutProvider>
+      <AuthenticatedShellInner>{children}</AuthenticatedShellInner>
+    </ChatFlyoutProvider>
   );
 }

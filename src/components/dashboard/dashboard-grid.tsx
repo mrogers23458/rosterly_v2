@@ -20,6 +20,7 @@ import { CSS } from "@dnd-kit/utilities";
 import { GripVertical, LayoutDashboard, Plus, X } from "lucide-react";
 import { useEffect, useState } from "react";
 import { ManualSetupWidget } from "@/components/dashboard/manual-setup-widget";
+import { QuickChatWidget } from "@/components/dashboard/widgets/quick-chat-widget";
 import { WeatherWidget } from "@/components/dashboard/weather-widget";
 import { WidgetManagerModal, WIDGET_REGISTRY } from "@/components/dashboard/widget-manager-modal";
 import { UpcomingEventsWidget } from "@/components/dashboard/widgets/upcoming-events-widget";
@@ -29,9 +30,9 @@ import type { TeamEvent } from "@/lib/constants/events";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
-export type WidgetId = "upcoming-games" | "weather" | "manual-setup";
+export type WidgetId = "upcoming-games" | "quick-chat" | "weather" | "manual-setup";
 
-const DEFAULT_ORDER: WidgetId[]   = ["upcoming-games", "weather", "manual-setup"];
+const DEFAULT_ORDER: WidgetId[]   = ["upcoming-games", "quick-chat", "weather", "manual-setup"];
 const DEFAULT_HIDDEN: WidgetId[]  = [];
 const STORAGE_KEY = "rosterly-dashboard-v2";
 
@@ -195,6 +196,7 @@ export function DashboardGrid({
         hasTeams={hasTeams}
       />
     ),
+    "quick-chat":   <QuickChatWidget />,
     "weather":      <WeatherWidget />,
     "manual-setup": <ManualSetupWidget />,
   };

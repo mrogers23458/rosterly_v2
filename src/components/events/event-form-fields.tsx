@@ -204,7 +204,7 @@ export function EventFormFields({
                 onRosterId("");
                 onLineupId("");
               }}
-              className="flex h-9 w-full rounded-md border border-input bg-background px-3 py-1 text-sm shadow-xs transition-colors focus:outline-none focus:ring-1 focus:ring-ring"
+              className="flex h-9 w-full rounded-md border border-input bg-background pl-3 pr-10 py-1 text-sm shadow-xs transition-colors focus:outline-none focus:ring-1 focus:ring-ring"
             >
               <option value="">No team</option>
               {teams.map((t) => (
@@ -219,7 +219,7 @@ export function EventFormFields({
               value={rosterId}
               onChange={(e) => onRosterId(e.target.value)}
               disabled={!teamId || rostersForTeam.length === 0}
-              className="flex h-9 w-full rounded-md border border-input bg-background px-3 py-1 text-sm shadow-xs transition-colors focus:outline-none focus:ring-1 focus:ring-ring disabled:cursor-not-allowed disabled:opacity-50"
+              className="flex h-9 w-full rounded-md border border-input bg-background pl-3 pr-10 py-1 text-sm shadow-xs transition-colors focus:outline-none focus:ring-1 focus:ring-ring disabled:cursor-not-allowed disabled:opacity-50"
             >
               <option value="">No roster</option>
               {rostersForTeam.map((r) => (
@@ -242,7 +242,7 @@ export function EventFormFields({
             value={lineupId}
             onChange={(e) => onLineupId(e.target.value)}
             disabled={lineupsForTeam.length === 0}
-            className="flex h-9 w-full rounded-md border border-input bg-background px-3 py-1 text-sm shadow-xs transition-colors focus:outline-none focus:ring-1 focus:ring-ring disabled:cursor-not-allowed disabled:opacity-50"
+            className="flex h-9 w-full rounded-md border border-input bg-background pl-3 pr-10 py-1 text-sm shadow-xs transition-colors focus:outline-none focus:ring-1 focus:ring-ring disabled:cursor-not-allowed disabled:opacity-50"
           >
             <option value="">No lineup linked</option>
             {lineupsForTeam.map((l) => (
@@ -282,7 +282,7 @@ export function EventFormFields({
                 onRecurrenceType(v ? (v as RecurrenceType) : null);
                 if (!v) onRecurrenceEndDate("");
               }}
-              className="flex h-9 w-full rounded-md border border-input bg-background px-3 py-1 text-sm shadow-xs transition-colors focus:outline-none focus:ring-1 focus:ring-ring"
+              className="flex h-9 w-full rounded-md border border-input bg-background pl-3 pr-10 py-1 text-sm shadow-xs transition-colors focus:outline-none focus:ring-1 focus:ring-ring"
             >
               <option value="">Does not repeat</option>
               {RECURRENCE_TYPES.map((r) => (

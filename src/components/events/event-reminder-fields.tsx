@@ -134,7 +134,7 @@ export function EventReminderFields({ reminders, onChange }: Props) {
                   id={`${uid}-unit-${idx}`}
                   value={reminder.unit}
                   onChange={(e) => updateReminder(reminder.key, { unit: e.target.value as ReminderUnit })}
-                  className="flex h-8 rounded-md border border-input bg-background px-2 text-sm focus:outline-none focus:ring-1 focus:ring-ring"
+                  className="flex h-8 rounded-md border border-input bg-background pl-2 pr-9 text-sm focus:outline-none focus:ring-1 focus:ring-ring"
                 >
                   {(["minutes", "hours", "days"] as ReminderUnit[]).map((u) => (
                     <option key={u} value={u}>{REMINDER_UNIT_LABELS[u]}</option>
