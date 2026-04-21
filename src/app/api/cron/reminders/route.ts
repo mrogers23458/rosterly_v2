@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
+import webpush from "web-push";
 import { Resend } from "resend";
 import { getResendFromAddress } from "@/lib/resend-from";
 
@@ -31,9 +32,13 @@ function isAuthorized(req: NextRequest): boolean {
 
 // ── Email helper ──────────────────────────────────────────────────────────────
 function formatReminderSubject(
-  eventTitle:  string,
+  kind: "event_reminder" | "rsvp_follow_up",
+  eventTitle: string,
   minutesBefore: number,
 ): string {
+  if (kind === "rsvp_follow_up") {
+    return `Final RSVP reminder: ${eventTitle}`;
+  }
   if (minutesBefore >= 1440) {
     const days = Math.round(minutesBefore / 1440);
     return `Reminder: ${eventTitle} in ${days} day${days !== 1 ? "s" : ""}`;
@@ -46,6 +51,7 @@ function formatReminderSubject(
 }
 
 function buildEmailHtml(params: {
+  kind:         "event_reminder" | "rsvp_follow_up";
   eventTitle:    string;
   eventDate:     string;
   startTime:     string | null;
@@ -57,6 +63,7 @@ function buildEmailHtml(params: {
   eventId:       string;
 }): string {
   const {
+    kind,
     eventTitle, eventDate, startTime, location, opponent,
     minutesBefore, appUrl, eventId,
   } = params;
@@ -71,6 +78,9 @@ function buildEmailHtml(params: {
     : minutesBefore >= 60
       ? `${Math.round(minutesBefore / 60)} hour${Math.round(minutesBefore / 60) !== 1 ? "s" : ""}`
       : `${minutesBefore} minutes`;
+  const subtitle = kind === "rsvp_follow_up"
+    ? "Please respond to this event now."
+    : `Starting in <strong>${timeLabel}</strong>`;
 
   return `
 <!DOCTYPE html>
@@ -86,7 +96,7 @@ function buildEmailHtml(params: {
     <div style="padding:24px">
       <h1 style="margin:0 0 4px;font-size:20px;color:#0f172a">${eventTitle}</h1>
       <p style="margin:0 0 16px;color:#64748b;font-size:14px">
-        Starting in <strong>${timeLabel}</strong>
+        ${subtitle}
       </p>
       <table style="width:100%;border-collapse:collapse">
         <tr>
@@ -99,7 +109,7 @@ function buildEmailHtml(params: {
       </table>
       <a href="${appUrl}/events/${eventId}"
          style="display:inline-block;margin-top:20px;background:#1e40af;color:#fff;text-decoration:none;padding:10px 20px;border-radius:6px;font-size:13px;font-weight:600">
-        View event →
+        ${kind === "rsvp_follow_up" ? "Respond to RSVP" : "View event"} →
       </a>
     </div>
     <div style="background:#f8fafc;border-top:1px solid #e2e8f0;padding:12px 24px">
@@ -131,6 +141,13 @@ export async function GET(req: NextRequest) {
   const resendApiKey = process.env.RESEND_API_KEY;
   const fromEmail    = getResendFromAddress();
   const resend       = resendApiKey ? new Resend(resendApiKey) : null;
+  const vapidPublicKey = process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY;
+  const vapidPrivateKey = process.env.VAPID_PRIVATE_KEY;
+  const vapidSubject = process.env.VAPID_SUBJECT;
+  const canSendWebPush = Boolean(vapidPublicKey && vapidPrivateKey && vapidSubject);
+  if (canSendWebPush) {
+    webpush.setVapidDetails(vapidSubject!, vapidPublicKey!, vapidPrivateKey!);
+  }
 
   // ── Step 1: Fetch due reminders ─────────────────────────────────────────────
   const { data: dueReminders, error: fetchErr } = await supabase
@@ -164,6 +181,13 @@ export async function GET(req: NextRequest) {
       let recipientEmails: string[]       = [];
       let recipientUserIds: string[]      = [];
       let recipientPhones: string[]       = [];
+      let pushSubscriptions: Array<{
+        endpoint: string;
+        p256dh: string;
+        auth: string;
+        user_id: string;
+      }> = [];
+      let nonResponderCount = 0;
 
       if (reminder.team_id) {
         // Get all active team member user IDs
@@ -172,7 +196,18 @@ export async function GET(req: NextRequest) {
           .select("user_id")
           .eq("team_id", reminder.team_id);
 
-        recipientUserIds = (members ?? []).map((m: { user_id: string }) => m.user_id);
+        const teamMemberUserIds = (members ?? []).map((m: { user_id: string }) => m.user_id);
+        recipientUserIds = teamMemberUserIds;
+
+        if (reminder.audience === "non_responders") {
+          const { data: responses } = await supabase
+            .from("event_rsvps")
+            .select("user_id")
+            .eq("event_id", reminder.event_id);
+          const respondedSet = new Set((responses ?? []).map((r: { user_id: string }) => r.user_id));
+          recipientUserIds = teamMemberUserIds.filter((uid) => !respondedSet.has(uid));
+          nonResponderCount = recipientUserIds.length;
+        }
 
         if (reminder.channel === "email" || reminder.channel === "in_app") {
           // Get emails from auth.users via admin API
@@ -180,6 +215,15 @@ export async function GET(req: NextRequest) {
             const { data: { user } } = await supabase.auth.admin.getUserById(uid);
             if (user?.email) recipientEmails.push(user.email);
           }
+        }
+
+        if (reminder.channel === "push" && recipientUserIds.length > 0) {
+          const { data: subscriptions } = await supabase
+            .from("push_subscriptions")
+            .select("endpoint,p256dh,auth,user_id")
+            .in("user_id", recipientUserIds)
+            .eq("active", true);
+          pushSubscriptions = (subscriptions ?? []) as typeof pushSubscriptions;
         }
 
         if (reminder.channel === "sms") {
@@ -212,13 +256,22 @@ export async function GET(req: NextRequest) {
           if (user?.email) recipientEmails = [user.email];
         }
         recipientUserIds = [reminder.event_owner_id];
+        if (reminder.channel === "push") {
+          const { data: subscriptions } = await supabase
+            .from("push_subscriptions")
+            .select("endpoint,p256dh,auth,user_id")
+            .eq("user_id", reminder.event_owner_id)
+            .eq("active", true);
+          pushSubscriptions = (subscriptions ?? []) as typeof pushSubscriptions;
+        }
       }
 
       // ── Step 4: Send ───────────────────────────────────────────────────────
 
       if (reminder.channel === "email" && resend && recipientEmails.length > 0) {
-        const subject  = formatReminderSubject(reminder.event_title, reminder.minutes_before);
+        const subject  = formatReminderSubject(reminder.kind, reminder.event_title, reminder.minutes_before);
         const html     = buildEmailHtml({
+          kind:          reminder.kind,
           eventTitle:    reminder.event_title,
           eventDate:     reminder.event_date,
           startTime:     reminder.start_time,
@@ -248,7 +301,7 @@ export async function GET(req: NextRequest) {
         const twFrom       = process.env.TWILIO_FROM_NUMBER;
 
         if (twAccountSid && twAuthToken && twFrom && recipientPhones.length > 0) {
-          const body = `${formatReminderSubject(reminder.event_title, reminder.minutes_before)}${reminder.location ? ` @ ${reminder.location}` : ""}`;
+          const body = `${formatReminderSubject(reminder.kind, reminder.event_title, reminder.minutes_before)}${reminder.location ? ` @ ${reminder.location}` : ""}`;
           const authB64 = Buffer.from(`${twAccountSid}:${twAuthToken}`).toString("base64");
 
           for (const phone of recipientPhones) {
@@ -269,12 +322,13 @@ export async function GET(req: NextRequest) {
       }
 
       if (reminder.channel === "in_app" && recipientUserIds.length > 0) {
-        const subject = formatReminderSubject(reminder.event_title, reminder.minutes_before);
+        const subject = formatReminderSubject(reminder.kind, reminder.event_title, reminder.minutes_before);
         const notifRows = recipientUserIds.map((uid) => ({
           user_id:  uid,
           event_id: reminder.event_id,
           title:    subject,
           body:     [
+            reminder.kind === "rsvp_follow_up" && "RSVP is still pending.",
             reminder.location && `📍 ${reminder.location}`,
             reminder.opponent && `vs. ${reminder.opponent}`,
           ].filter(Boolean).join(" · ") || null,
@@ -283,6 +337,56 @@ export async function GET(req: NextRequest) {
 
         await supabase.from("notifications").insert(notifRows);
         recipientCount = notifRows.length;
+      }
+
+      if (reminder.channel === "push" && pushSubscriptions.length > 0 && canSendWebPush) {
+        const title = formatReminderSubject(reminder.kind, reminder.event_title, reminder.minutes_before);
+        const body = reminder.kind === "rsvp_follow_up"
+          ? "RSVP is still pending. Tap to respond."
+          : reminder.location
+            ? `Upcoming at ${reminder.location}`
+            : "Upcoming event reminder";
+
+        for (const sub of pushSubscriptions) {
+          try {
+            await webpush.sendNotification(
+              {
+                endpoint: sub.endpoint,
+                keys: { p256dh: sub.p256dh, auth: sub.auth },
+              },
+              JSON.stringify({
+                title,
+                body,
+                url: `${appUrl}/events/${reminder.event_id}`,
+              }),
+            );
+          } catch (pushError) {
+            const statusCode = (pushError as { statusCode?: number }).statusCode;
+            if (statusCode === 404 || statusCode === 410) {
+              await supabase
+                .from("push_subscriptions")
+                .update({ active: false, updated_at: new Date().toISOString() })
+                .eq("endpoint", sub.endpoint)
+                .eq("user_id", sub.user_id);
+            }
+          }
+        }
+        recipientCount = pushSubscriptions.length;
+      }
+
+      if (reminder.channel === "team_chat" && reminder.team_id) {
+        if (reminder.audience !== "non_responders" || nonResponderCount > 0) {
+          const body = reminder.kind === "rsvp_follow_up"
+            ? `Final RSVP reminder: we're still waiting on ${nonResponderCount} response${nonResponderCount === 1 ? "" : "s"} for "${reminder.event_title}".`
+            : `${formatReminderSubject(reminder.kind, reminder.event_title, reminder.minutes_before)}${reminder.location ? ` @ ${reminder.location}` : ""}`;
+          await supabase.from("team_messages").insert({
+            team_id: reminder.team_id,
+            user_id: reminder.event_owner_id,
+            sender_name: "Rosterly Bot",
+            body,
+          });
+          recipientCount = 1;
+        }
       }
 
     } catch (e) {

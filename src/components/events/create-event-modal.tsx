@@ -4,7 +4,7 @@ import { CheckCircle2, Loader2 } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
 import { createEvent } from "@/app/actions/events";
-import { saveEventReminders } from "@/app/actions/reminders";
+import { saveEventRemindersForEventIds } from "@/app/actions/reminders";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import {
@@ -29,6 +29,12 @@ type Props = {
   defaultEventDate?: string;
 };
 
+function localDateTimeToIso(value: string): string | null {
+  if (!value) return null;
+  const parsed = new Date(value);
+  return Number.isNaN(parsed.getTime()) ? null : parsed.toISOString();
+}
+
 export function CreateEventModal({
   open, onOpenChange, teams, rosters, lineups,
   defaultTeamId = "", defaultLineupId = "", defaultRosterId = "", defaultEventDate = "",
@@ -43,6 +49,7 @@ export function CreateEventModal({
   const [endTime,    setEndTime]    = useState("");
   const [location,   setLocation]   = useState("");
   const [notes,      setNotes]      = useState("");
+  const [rsvpDeadlineAt, setRsvpDeadlineAt] = useState("");
   const [isHome,     setIsHome]     = useState(true);
   const [teamId,     setTeamId]     = useState(defaultTeamId);
   const [rosterId,   setRosterId]   = useState(defaultRosterId);
@@ -64,6 +71,7 @@ export function CreateEventModal({
     setEndTime("");
     setLocation("");
     setNotes("");
+    setRsvpDeadlineAt("");
     setIsHome(true);
     setTeamId(defaultTeamId);
     setRosterId(defaultRosterId);
@@ -107,6 +115,10 @@ export function CreateEventModal({
       setSubmitError("Recurrence end date must be after the start date.");
       return;
     }
+    if (reminders.some((r) => r.kind === "rsvp_follow_up") && !rsvpDeadlineAt) {
+      setSubmitError("RSVP deadline is required when RSVP follow-up reminders are enabled.");
+      return;
+    }
 
     startTransition(async () => {
       setSubmitError(null);
@@ -122,6 +134,7 @@ export function CreateEventModal({
         end_time:   endTime   || null,
         location:   location  || null,
         notes:      notes     || null,
+        rsvp_deadline_at: localDateTimeToIso(rsvpDeadlineAt),
         is_home:    isHome,
         recurrence_type:     recurrenceType,
         recurrence_end_date: recurrenceEndDate || null,
@@ -133,8 +146,8 @@ export function CreateEventModal({
       }
 
       // Save reminders (best-effort, don't block on error)
-      if (reminders.length > 0 && res.data.id) {
-        await saveEventReminders(res.data.id, reminders);
+      if (reminders.length > 0 && res.created_event_ids.length > 0) {
+        await saveEventRemindersForEventIds(res.created_event_ids, reminders);
       }
 
       setDone(true);
@@ -172,6 +185,8 @@ export function CreateEventModal({
                 endTime={endTime}     onEndTime={setEndTime}
                 location={location}   onLocation={setLocation}
                 notes={notes}         onNotes={setNotes}
+                rsvpDeadlineAt={rsvpDeadlineAt}
+                onRsvpDeadlineAt={setRsvpDeadlineAt}
                 isHome={isHome}       onIsHome={setIsHome}
                 teamId={teamId}       onTeamId={setTeamId}
                 rosterId={rosterId}   onRosterId={setRosterId}

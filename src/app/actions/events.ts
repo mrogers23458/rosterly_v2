@@ -43,7 +43,7 @@ function generateRecurringDates(
 
 export async function createEvent(
   input: CreateEventInput,
-): Promise<{ data: TeamEvent | null; error: string | null }> {
+): Promise<{ data: TeamEvent | null; error: string | null; created_event_ids: string[] }> {
   try {
     const { supabase, user } = await getAuthenticatedClient();
 
@@ -59,6 +59,7 @@ export async function createEvent(
       end_time:   input.end_time?.trim()   || null,
       location:   input.location?.trim()   || null,
       notes:      input.notes?.trim()      || null,
+      rsvp_deadline_at: input.rsvp_deadline_at || null,
       is_home:    input.is_home,
     };
 
@@ -84,12 +85,16 @@ export async function createEvent(
         .insert(rows)
         .select();
 
-      if (error) return { data: null, error: error.message };
-      if (!data || data.length === 0) return { data: null, error: "No events created." };
+      if (error) return { data: null, error: error.message, created_event_ids: [] };
+      if (!data || data.length === 0) return { data: null, error: "No events created.", created_event_ids: [] };
 
       revalidatePath("/events");
       if (input.team_id) revalidatePath(`/teams/${input.team_id}`);
-      return { data: data[0] as TeamEvent, error: null };
+      return {
+        data: data[0] as TeamEvent,
+        error: null,
+        created_event_ids: (data as TeamEvent[]).map((row) => row.id),
+      };
     }
 
     // ── Single event ──────────────────────────────────────────────────────
@@ -99,13 +104,13 @@ export async function createEvent(
       .select()
       .single();
 
-    if (error) return { data: null, error: error.message };
+    if (error) return { data: null, error: error.message, created_event_ids: [] };
 
     revalidatePath("/events");
     if (input.team_id) revalidatePath(`/teams/${input.team_id}`);
-    return { data: data as TeamEvent, error: null };
+    return { data: data as TeamEvent, error: null, created_event_ids: [data.id] };
   } catch (err) {
-    return { data: null, error: String(err) };
+    return { data: null, error: String(err), created_event_ids: [] };
   }
 }
 
@@ -132,6 +137,7 @@ export async function updateEvent(
       end_time:   input.end_time?.trim()   || null,
       location:   input.location?.trim()   || null,
       notes:      input.notes?.trim()      || null,
+      rsvp_deadline_at: input.rsvp_deadline_at || null,
       is_home:    input.is_home,
     };
 
