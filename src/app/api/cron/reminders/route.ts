@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 import { Resend } from "resend";
+import { getResendFromAddress } from "@/lib/resend-from";
 
 // ── Service-role Supabase client (bypasses RLS) ───────────────────────────────
 function getAdminClient() {
@@ -128,7 +129,7 @@ export async function GET(req: NextRequest) {
   const supabase = getAdminClient();
   const appUrl   = process.env.NEXT_PUBLIC_SITE_URL ?? "https://rosterlylineups.app";
   const resendApiKey = process.env.RESEND_API_KEY;
-  const fromEmail    = process.env.REMINDER_FROM_EMAIL ?? "reminders@rosterlylineups.app";
+  const fromEmail    = getResendFromAddress();
   const resend       = resendApiKey ? new Resend(resendApiKey) : null;
 
   // ── Step 1: Fetch due reminders ─────────────────────────────────────────────

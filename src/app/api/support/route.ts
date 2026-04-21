@@ -1,6 +1,7 @@
 import { cookies } from "next/headers";
 import { NextRequest, NextResponse } from "next/server";
 import { Resend } from "resend";
+import { getResendFromAddress } from "@/lib/resend-from";
 import { createClient } from "@/utils/supabase/server";
 
 const SUPPORT_TO = [
@@ -118,10 +119,7 @@ export async function POST(req: NextRequest) {
     );
   }
 
-  const from =
-    process.env.SUPPORT_FROM_EMAIL ??
-    process.env.REMINDER_FROM_EMAIL ??
-    "Rosterly <onboarding@resend.dev>";
+  const from = getResendFromAddress();
 
   const label = CATEGORY_LABEL[category];
   const subject = `[Rosterly] ${label} from ${user.email ?? user.id}`;
