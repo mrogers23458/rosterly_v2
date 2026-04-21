@@ -10,6 +10,7 @@ import {
   LogOut,
   Menu,
   MessageSquare,
+  Settings,
   UserCircle2,
   Users,
   X,
@@ -146,6 +147,19 @@ function SidebarContents({
           <span className="text-xs text-muted-foreground">Notifications</span>
           <NotificationsBell />
         </div>
+        <Link
+          href="/profile"
+          onClick={onClose}
+          className={cn(
+            "flex items-center gap-3 rounded-md px-3 py-2.5 text-sm font-medium transition-colors",
+            pathname === "/profile"
+              ? "bg-primary/10 text-primary"
+              : "text-foreground/70 hover:bg-muted hover:text-foreground",
+          )}
+        >
+          <Settings className="h-4 w-4 shrink-0" />
+          My profile
+        </Link>
         <button
           onClick={onLogout}
           className="flex w-full items-center gap-3 rounded-md px-3 py-2.5 text-sm font-medium text-foreground/70 transition-colors hover:bg-muted hover:text-foreground"

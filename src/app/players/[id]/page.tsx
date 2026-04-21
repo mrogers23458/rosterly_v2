@@ -5,6 +5,7 @@ import { createClient } from "@/utils/supabase/server";
 import { PlayerDetailHeader } from "@/components/players/player-detail-header";
 import { PlayerPlaytimePanel } from "@/components/players/player-playtime-panel";
 import { PlayerStatsPanel } from "@/components/players/player-stats-panel";
+import { PlayerClaimButton } from "@/components/players/player-claim-button";
 import { Badge } from "@/components/ui/badge";
 import { getUserTeamRole } from "@/lib/permissions";
 import { can } from "@/lib/constants/roles";
@@ -12,6 +13,7 @@ import type { TeamRole } from "@/lib/constants/roles";
 import type { GameLineup, LineupEntry, Player, Roster, Team } from "@/lib/constants/teams";
 import type { PlayerGameStat } from "@/app/actions/player-stats";
 import type { LineupAppearance } from "@/components/players/player-playtime-panel";
+import { getMyClaimForPlayer } from "@/app/actions/player-claims";
 
 type Props = {
   params: Promise<{ id: string }>;
@@ -70,6 +72,18 @@ export default async function PlayerDetailPage({ params }: Props) {
   const userRole: TeamRole | null = user && teamId
     ? (await getUserTeamRole(supabase, user.id, teamId)) ?? null
     : null;
+
+  // ── 3b. Claim state ─────────────────────────────────────────────────────────
+  // Load the current user's own claim (if any) and whether the player is already
+  // claimed by a different user so we can show the appropriate UI.
+  const { data: myClaim } = user ? await getMyClaimForPlayer(id) : { data: null };
+  const claimedByUserId   = (player as Player & { claimed_by_user_id?: string | null }).claimed_by_user_id ?? null;
+  const alreadyClaimed    = !!claimedByUserId && claimedByUserId !== user?.id;
+  const isClaimer         = !!user && claimedByUserId === user.id;
+
+  // A viewer who is the approved claimer gets player:edit capability.
+  const canEditAsManager  = can(userRole, "player:edit");
+  const effectiveCanEdit  = canEditAsManager || isClaimer;
 
   // ── 4. Load all lineups for the team (for stats modal picker) ───────────────
   const { data: lineupsRaw } = teamId
@@ -177,7 +191,21 @@ export default async function PlayerDetailPage({ params }: Props) {
           teamId={teamId}
           rosterId={player.roster_id}
           userRole={userRole}
+          canEdit={effectiveCanEdit}
         />
+
+        {/* Claim button — shown for team members who can view but not edit */}
+        {user && teamId && userRole && !canEditAsManager && !isClaimer && (
+          <div className="mt-4">
+            <PlayerClaimButton
+              playerId={id}
+              teamId={teamId}
+              playerName={`${player.first_name} ${player.last_name}`}
+              existingClaim={myClaim}
+              alreadyClaimed={alreadyClaimed}
+            />
+          </div>
+        )}
       </div>
 
       <div className="flex flex-col gap-8">

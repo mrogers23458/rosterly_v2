@@ -1,12 +1,32 @@
-export type ReminderChannel = "email" | "sms" | "in_app";
+export type ReminderChannel = "email" | "sms" | "in_app" | "push" | "team_chat";
+export type ReminderKind = "event_reminder" | "rsvp_follow_up";
+export type ReminderAudience = "all_members" | "non_responders";
 
 export const REMINDER_CHANNELS: Record<
   ReminderChannel,
   { label: string; description: string }
 > = {
-  email:  { label: "Email",    description: "Send to team member emails" },
-  sms:    { label: "Text",     description: "Send to guardian phone numbers" },
-  in_app: { label: "In-app",   description: "Notify inside Rosterly" },
+  email:     { label: "Email",     description: "Send to team member emails" },
+  sms:       { label: "Text",      description: "Send to guardian phone numbers" },
+  in_app:    { label: "In-app",    description: "Notify inside Rosterly" },
+  push:      { label: "Push",      description: "Send browser push notifications" },
+  team_chat: { label: "Team chat", description: "Post a reminder in team chat" },
+};
+
+export const REMINDER_KIND_LABELS: Record<
+  ReminderKind,
+  { label: string; description: string; audience: ReminderAudience }
+> = {
+  event_reminder: {
+    label: "Event reminder",
+    description: "Notifies all team members before the event starts.",
+    audience: "all_members",
+  },
+  rsvp_follow_up: {
+    label: "RSVP follow-up",
+    description: "Final reminder at RSVP deadline for people who have not responded.",
+    audience: "non_responders",
+  },
 };
 
 export type ReminderUnit = "minutes" | "hours" | "days";
@@ -33,6 +53,7 @@ export function minutesToUnit(minutes: number): { amount: number; unit: Reminder
 export type ReminderDraft = {
   /** Stable local key for React */
   key:      string;
+  kind:     ReminderKind;
   channels: ReminderChannel[];
   amount:   number;
   unit:     ReminderUnit;
@@ -43,6 +64,8 @@ export type EventReminder = {
   id:             string;
   event_id:       string;
   user_id:        string;
+  kind:           ReminderKind;
+  audience:       ReminderAudience;
   channel:        ReminderChannel;
   minutes_before: number;
   created_at:     string;
@@ -63,9 +86,11 @@ export type AppNotification = {
 /** Quick-pick presets shown in the reminder form. */
 export const REMINDER_PRESETS: Array<{ label: string; amount: number; unit: ReminderUnit }> = [
   { label: "30 min",  amount: 30, unit: "minutes" },
+  { label: "1 hour",  amount: 1,  unit: "hours"   },
   { label: "2 hours", amount: 2,  unit: "hours"   },
   { label: "8 hours", amount: 8,  unit: "hours"   },
   { label: "1 day",   amount: 1,  unit: "days"    },
+  { label: "1 week",  amount: 7,  unit: "days"    },
   { label: "2 days",  amount: 2,  unit: "days"    },
 ];
 
@@ -74,14 +99,22 @@ export const REMINDER_PRESETS: Array<{ label: string; amount: number; unit: Remi
  * ReminderDraft[] (one draft per unique minutes_before, with multiple channels).
  */
 export function remindersToDrafts(reminders: EventReminder[]): ReminderDraft[] {
-  const grouped = new Map<number, ReminderChannel[]>();
+  const grouped = new Map<string, { channels: ReminderChannel[]; kind: ReminderKind; audience: ReminderAudience; minutesBefore: number }>();
   for (const r of reminders) {
-    const arr = grouped.get(r.minutes_before) ?? [];
+    const groupKey = `${r.kind}:${r.audience}:${r.minutes_before}`;
+    const existing = grouped.get(groupKey) ?? {
+      channels: [],
+      kind: r.kind,
+      audience: r.audience,
+      minutesBefore: r.minutes_before,
+    };
+    const arr = existing.channels;
     if (!arr.includes(r.channel)) arr.push(r.channel);
-    grouped.set(r.minutes_before, arr);
+    grouped.set(groupKey, existing);
   }
 
-  return Array.from(grouped.entries()).map(([minutes, channels], i) => {
+  return Array.from(grouped.values()).map((group, i) => {
+    const minutes = group.minutesBefore;
     const unit =
       minutes % 1440 === 0 ? "days" as const :
       minutes % 60   === 0 ? "hours" as const :
@@ -90,6 +123,12 @@ export function remindersToDrafts(reminders: EventReminder[]): ReminderDraft[] {
       unit === "days"  ? minutes / 1440 :
       unit === "hours" ? minutes / 60   :
                          minutes;
-    return { key: `loaded-${i}`, channels, amount, unit };
+    return {
+      key: `loaded-${i}`,
+      kind: group.kind,
+      channels: group.channels,
+      amount: group.kind === "rsvp_follow_up" ? 0 : amount,
+      unit: group.kind === "rsvp_follow_up" ? "minutes" : unit,
+    };
   });
 }

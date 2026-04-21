@@ -18,6 +18,17 @@ export async function setEventRsvp(
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return { data: null, error: "Not authenticated." };
 
+    const { data: eventRow, error: eventErr } = await supabase
+      .from("events")
+      .select("rsvp_deadline_at")
+      .eq("id", eventId)
+      .single();
+    if (eventErr) return { data: null, error: eventErr.message };
+    const rsvpDeadline = eventRow?.rsvp_deadline_at as string | null;
+    if (rsvpDeadline && new Date(rsvpDeadline).getTime() <= Date.now()) {
+      return { data: null, error: "RSVP deadline has passed for this event." };
+    }
+
     // Derive a display name from auth metadata (Google name, or email prefix)
     const meta = user.user_metadata as Record<string, string> | undefined;
     const responder_name =

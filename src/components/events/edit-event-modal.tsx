@@ -30,6 +30,20 @@ type Props = {
   lineups:       GameLineup[];
 };
 
+function isoToLocalDateTimeInput(iso: string | null | undefined): string {
+  if (!iso) return "";
+  const parsed = new Date(iso);
+  if (Number.isNaN(parsed.getTime())) return "";
+  const tzOffsetMs = parsed.getTimezoneOffset() * 60 * 1000;
+  return new Date(parsed.getTime() - tzOffsetMs).toISOString().slice(0, 16);
+}
+
+function localDateTimeToIso(value: string): string | null {
+  if (!value) return null;
+  const parsed = new Date(value);
+  return Number.isNaN(parsed.getTime()) ? null : parsed.toISOString();
+}
+
 export function EditEventModal({ event, open, onOpenChange, teams, rosters, lineups }: Props) {
   const router = useRouter();
   const isRecurring = Boolean(event.recurrence_group_id);
@@ -44,6 +58,7 @@ export function EditEventModal({ event, open, onOpenChange, teams, rosters, line
   const [endTime,    setEndTime]  = useState(event.end_time   ?? "");
   const [location,   setLocation] = useState(event.location  ?? "");
   const [notes,      setNotes]    = useState(event.notes      ?? "");
+  const [rsvpDeadlineAt, setRsvpDeadlineAt] = useState(isoToLocalDateTimeInput(event.rsvp_deadline_at));
   const [isHome,     setIsHome]   = useState(event.is_home);
   const [teamId,     setTeamId]   = useState(event.team_id   ?? "");
   const [rosterId,   setRosterId] = useState(event.roster_id ?? "");
@@ -58,6 +73,7 @@ export function EditEventModal({ event, open, onOpenChange, teams, rosters, line
     const wasOpen = prevOpenRef.current;
     prevOpenRef.current = open;
     if (!open || wasOpen) return;
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setStep(isRecurring ? "scope" : "form");
     setScope("this");
     setType(event.type);
@@ -68,6 +84,7 @@ export function EditEventModal({ event, open, onOpenChange, teams, rosters, line
     setEndTime(event.end_time   ?? "");
     setLocation(event.location  ?? "");
     setNotes(event.notes        ?? "");
+    setRsvpDeadlineAt(isoToLocalDateTimeInput(event.rsvp_deadline_at));
     setIsHome(event.is_home);
     setTeamId(event.team_id     ?? "");
     setRosterId(event.roster_id ?? "");
@@ -94,6 +111,10 @@ export function EditEventModal({ event, open, onOpenChange, teams, rosters, line
 
   function handleSubmit() {
     if (!eventDate) { setSubmitError("Date is required."); return; }
+    if (reminders.some((r) => r.kind === "rsvp_follow_up") && !rsvpDeadlineAt) {
+      setSubmitError("RSVP deadline is required when RSVP follow-up reminders are enabled.");
+      return;
+    }
 
     startTransition(async () => {
       setSubmitError(null);
@@ -112,6 +133,7 @@ export function EditEventModal({ event, open, onOpenChange, teams, rosters, line
           end_time:   endTime   || null,
           location:   location  || null,
           notes:      notes     || null,
+          rsvp_deadline_at: localDateTimeToIso(rsvpDeadlineAt),
           is_home:    isHome,
         },
         scope,
@@ -122,7 +144,10 @@ export function EditEventModal({ event, open, onOpenChange, teams, rosters, line
         return;
       }
 
-      await saveEventReminders(event.id, reminders);
+      await saveEventReminders(event.id, reminders, {
+        scope,
+        recurrenceGroupId: event.recurrence_group_id,
+      });
       onOpenChange(false);
       router.refresh();
     });
@@ -196,6 +221,8 @@ export function EditEventModal({ event, open, onOpenChange, teams, rosters, line
                 endTime={endTime}     onEndTime={setEndTime}
                 location={location}   onLocation={setLocation}
                 notes={notes}         onNotes={setNotes}
+                rsvpDeadlineAt={rsvpDeadlineAt}
+                onRsvpDeadlineAt={setRsvpDeadlineAt}
                 isHome={isHome}       onIsHome={setIsHome}
                 teamId={teamId}       onTeamId={setTeamId}
                 rosterId={rosterId}   onRosterId={setRosterId}

@@ -60,6 +60,7 @@ export type TeamEvent = {
   end_time:   string | null;
   location:   string | null;
   notes:      string | null;
+  rsvp_deadline_at: string | null;
   is_home:    boolean;
   is_archived: boolean;
   recurrence_type:      RecurrenceType | null;
@@ -81,6 +82,7 @@ export type CreateEventInput = {
   end_time:   string | null;
   location:   string | null;
   notes:      string | null;
+  rsvp_deadline_at: string | null;
   is_home:    boolean;
   recurrence_type:     RecurrenceType | null;
   recurrence_end_date: string | null;

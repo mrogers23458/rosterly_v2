@@ -11,6 +11,8 @@ type Props = {
   eventId:   string;
   myRsvp:    EventRsvp | null;  // current user's existing RSVP (null = not responded)
   allRsvps:  EventRsvp[];       // all RSVPs for the event (only populated for coaches)
+  rsvpDeadlineAt?: string | null;
+  rsvpClosed?: boolean;
   userRole?: TeamRole | null;
   userId?:   string | null;
 };
@@ -58,7 +60,15 @@ function countByStatus(rsvps: EventRsvp[]) {
 
 // ── Component ─────────────────────────────────────────────────────────────────
 
-export function EventRsvpPanel({ eventId, myRsvp, allRsvps, userRole, userId }: Props) {
+export function EventRsvpPanel({
+  eventId,
+  myRsvp,
+  allRsvps,
+  rsvpDeadlineAt,
+  rsvpClosed = false,
+  userRole,
+  userId,
+}: Props) {
   const canSeeAll = can(userRole, "event:edit") || userRole === "owner" || userRole === "manager";
 
   // Optimistic current-user RSVP
@@ -80,7 +90,7 @@ export function EventRsvpPanel({ eventId, myRsvp, allRsvps, userRole, userId }: 
   const [showResponders, setShowResponders] = useState(false);
 
   function handleRsvp(status: RsvpStatus) {
-    if (!userId) return;
+    if (!userId || rsvpClosed) return;
 
     // Clicking the active status removes the RSVP
     const isActive = optimisticMyRsvp?.status === status;
@@ -114,11 +124,17 @@ export function EventRsvpPanel({ eventId, myRsvp, allRsvps, userRole, userId }: 
 
   return (
     <div className="flex flex-col gap-4">
+      {rsvpDeadlineAt && (
+        <p className="text-xs text-muted-foreground">
+          RSVP deadline: {new Date(rsvpDeadlineAt).toLocaleString()}
+          {rsvpClosed ? " (closed)" : ""}
+        </p>
+      )}
       {/* RSVP buttons */}
       {userId ? (
         <div className="flex flex-col gap-3">
           <p className="text-sm font-medium text-foreground">
-            {optimisticMyRsvp ? "Your response:" : "Are you going?"}
+            {rsvpClosed ? "RSVP window has closed." : optimisticMyRsvp ? "Your response:" : "Are you going?"}
           </p>
           <div className="flex flex-wrap gap-2">
             {RSVP_ORDER.map((status) => {
@@ -128,8 +144,9 @@ export function EventRsvpPanel({ eventId, myRsvp, allRsvps, userRole, userId }: 
                 <button
                   key={status}
                   type="button"
+                  disabled={rsvpClosed}
                   onClick={() => handleRsvp(status)}
-                  className={`inline-flex items-center gap-2 rounded-full border px-4 py-2 text-sm font-semibold transition-all ${isActive ? cfg.selected : cfg.idle}`}
+                  className={`inline-flex items-center gap-2 rounded-full border px-4 py-2 text-sm font-semibold transition-all disabled:cursor-not-allowed disabled:opacity-60 ${isActive ? cfg.selected : cfg.idle}`}
                 >
                   {cfg.icon}
                   {cfg.label}
@@ -148,6 +165,7 @@ export function EventRsvpPanel({ eventId, myRsvp, allRsvps, userRole, userId }: 
                     await removeEventRsvp(eventId);
                   });
                 }}
+                disabled={rsvpClosed}
                 className="inline-flex items-center gap-1.5 rounded-full border border-border px-3 py-2 text-xs text-muted-foreground transition-colors hover:border-destructive/40 hover:bg-destructive/5 hover:text-destructive"
               >
                 <X className="h-3 w-3" />

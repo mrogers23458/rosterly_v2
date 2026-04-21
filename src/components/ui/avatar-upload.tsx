@@ -4,7 +4,7 @@ import { Camera, X } from "lucide-react";
 import { useRef, useState } from "react";
 import { createClient } from "@/utils/supabase/client";
 
-type Bucket = "team-logos" | "player-images";
+type Bucket = "team-logos" | "player-images" | "avatars";
 
 type Props = {
   /** Existing URL from the database (shown as default preview). */

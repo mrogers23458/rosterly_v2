@@ -83,6 +83,7 @@ model Event {
   endTime    String?   @map("end_time")
   location   String?
   notes      String?
+  rsvpDeadlineAt DateTime? @map("rsvp_deadline_at") @db.Timestamptz(6)
   isHome     Boolean   @default(true) @map("is_home")
   isArchived Boolean   @default(false) @map("is_archived")
 
@@ -119,12 +120,43 @@ model Player {
   medicalNotes        String?  @map("medical_notes")
   uniformSize         String?  @map("uniform_size")
   notes               String?
+  claimedByUserId     String?  @map("claimed_by_user_id") @db.Uuid
   createdAt           DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
   updatedAt           DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
 
-  roster Roster @relation(fields: [rosterId], references: [id], onDelete: Cascade)
+  roster Roster        @relation(fields: [rosterId], references: [id], onDelete: Cascade)
+  claims PlayerClaim[]
 
   @@map("players")
+}
+
+model Profile {
+  userId    String   @id @map("user_id") @db.Uuid
+  firstName String?  @map("first_name")
+  lastName  String?  @map("last_name")
+  phone     String?
+  address   String?
+  avatarUrl String?  @map("avatar_url")
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  @@map("profiles")
+}
+
+model PlayerClaim {
+  id        String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  playerId  String   @map("player_id") @db.Uuid
+  userId    String   @map("user_id") @db.Uuid
+  teamId    String   @map("team_id") @db.Uuid
+  status    String   @default("pending")
+  message   String?
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  player Player @relation(fields: [playerId], references: [id], onDelete: Cascade)
+
+  @@unique([playerId, userId])
+  @@map("player_claims")
 }
 
 /// 1:1 messages between users who share at least one team (see RLS).

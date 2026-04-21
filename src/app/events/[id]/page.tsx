@@ -138,6 +138,10 @@ export default async function EventDetailPage({ params }: Props) {
 
   const meta   = EVENT_TYPE_META[event.type];
   const isPast = new Date(event.event_date + "T00:00:00") < new Date(new Date().toDateString());
+  const now = new Date();
+  const rsvpClosed = Boolean(
+    event.rsvp_deadline_at && new Date(event.rsvp_deadline_at).getTime() <= now.getTime(),
+  );
   const showOpponent = event.type === "game" || event.type === "scrimmage";
 
   return (
@@ -252,6 +256,8 @@ export default async function EventDetailPage({ params }: Props) {
             eventId={event.id}
             myRsvp={myRsvp}
             allRsvps={allRsvps}
+            rsvpDeadlineAt={event.rsvp_deadline_at}
+            rsvpClosed={rsvpClosed}
             userRole={event.user_id === user?.id ? "owner" : userRole}
             userId={user?.id ?? null}
           />

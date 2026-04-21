@@ -17,14 +17,16 @@ type Props = {
   teamId:   string | null;
   rosterId: string;
   userRole: TeamRole | null;
+  /** Override the role-derived canEdit (e.g. for approved claimers). */
+  canEdit?: boolean;
 };
 
-export function PlayerDetailHeader({ player, teamId, rosterId, userRole }: Props) {
+export function PlayerDetailHeader({ player, teamId, rosterId, userRole, canEdit: canEditProp }: Props) {
   const router = useRouter();
   const [editOpen, setEditOpen]       = useState(false);
   const [isPending, startTransition]  = useTransition();
 
-  const canEdit = can(userRole, "player:edit");
+  const canEdit = canEditProp ?? can(userRole, "player:edit");
 
   const displayName = player.preferred_name?.trim()
     ? `${player.first_name} "${player.preferred_name}" ${player.last_name}`

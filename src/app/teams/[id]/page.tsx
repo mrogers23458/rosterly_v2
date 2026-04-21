@@ -19,6 +19,8 @@ import type { GameLineup, Player, Roster, Team } from "@/lib/constants/teams";
 import { getUserTeamRole } from "@/lib/permissions";
 import { can, ROLE_LABELS, type TeamRole } from "@/lib/constants/roles";
 import { getTeamMembers, getPendingInvitations } from "@/app/actions/members";
+import { getPendingClaimsForTeam } from "@/app/actions/player-claims";
+import { PlayerClaimsPanel } from "@/components/players/player-claims-panel";
 
 type Props = { params: Promise<{ id: string }> };
 
@@ -48,6 +50,11 @@ export default async function TeamDetailPage({ params }: Props) {
 
   const { data: teamMembers } = await getTeamMembers(id);
   const { data: pendingInvites } = await getPendingInvitations(id);
+
+  const canManageClaims = can(userRole, "team:manage_members");
+  const { data: pendingClaims } = canManageClaims
+    ? await getPendingClaimsForTeam(id)
+    : { data: [] };
 
   const typedTeam     = team      as Team;
   const typedRosters  = (rosters  ?? []) as Roster[];
@@ -134,6 +141,12 @@ export default async function TeamDetailPage({ params }: Props) {
           <TeamChatOpener teamId={id} teamName={typedTeam.name} />
         </div>
       </div>
+
+      {canManageClaims && (pendingClaims?.length ?? 0) > 0 && (
+        <div className="mb-8">
+          <PlayerClaimsPanel claims={pendingClaims ?? []} />
+        </div>
+      )}
 
       <TeamDetailAccordions
         rosterCount={typedRosters.length}

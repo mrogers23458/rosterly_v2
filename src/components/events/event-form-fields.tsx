@@ -20,6 +20,7 @@ type Props = {
   endTime:    string;
   location:   string;
   notes:      string;
+  rsvpDeadlineAt: string;
   isHome:     boolean;
   teamId:     string;
   rosterId:   string;
@@ -40,6 +41,7 @@ type Props = {
   onEndTime:   (v: string) => void;
   onLocation:  (v: string) => void;
   onNotes:     (v: string) => void;
+  onRsvpDeadlineAt: (v: string) => void;
   onIsHome:    (v: boolean) => void;
   onTeamId:    (v: string) => void;
   onRosterId:  (v: string) => void;
@@ -55,11 +57,12 @@ function formatLineupDate(dateStr: string) {
 
 export function EventFormFields({
   type, title, opponent, eventDate, startTime, endTime, location, notes,
+  rsvpDeadlineAt,
   isHome, teamId, rosterId, lineupId, recurrenceType, recurrenceEndDate,
   showRecurrence = true,
   teams, rosters, lineups,
   onType, onTitle, onOpponent, onEventDate, onStartTime, onEndTime,
-  onLocation, onNotes, onIsHome, onTeamId, onRosterId, onLineupId,
+  onLocation, onNotes, onRsvpDeadlineAt, onIsHome, onTeamId, onRosterId, onLineupId,
   onRecurrenceType, onRecurrenceEndDate,
 }: Props) {
   const rostersForTeam = teamId
@@ -189,6 +192,19 @@ export function EventFormFields({
           value={location}
           onChange={(e) => onLocation(e.target.value)}
         />
+      </div>
+
+      <div className="flex flex-col gap-1.5">
+        <Label htmlFor="event-rsvp-deadline">RSVP deadline</Label>
+        <Input
+          id="event-rsvp-deadline"
+          type="datetime-local"
+          value={rsvpDeadlineAt}
+          onChange={(e) => onRsvpDeadlineAt(e.target.value)}
+        />
+        <p className="text-xs text-muted-foreground">
+          Optional. Add a deadline to trigger final reminders for members who have not responded.
+        </p>
       </div>
 
       {/* Team + Roster */}
