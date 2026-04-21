@@ -169,3 +169,25 @@ export async function markNotificationsRead(
   }
 }
 
+// ── Delete notifications ──────────────────────────────────────────────────────
+
+/** Delete specific notifications by id. Pass an empty array to delete all. */
+export async function deleteNotifications(
+  ids: string[] | "all",
+): Promise<{ error: string | null }> {
+  try {
+    const cookieStore = await cookies();
+    const supabase    = createClient(cookieStore);
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return { error: "Not authenticated." };
+
+    const query = supabase.from("notifications").delete().eq("user_id", user.id);
+    const { error } = ids === "all" ? await query : await query.in("id", ids);
+
+    revalidatePath("/notifications");
+    return { error: error?.message ?? null };
+  } catch (e) {
+    return { error: e instanceof Error ? e.message : "Unknown error" };
+  }
+}
+
