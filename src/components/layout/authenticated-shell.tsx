@@ -6,6 +6,7 @@ import {
   ClipboardList,
   LayoutDashboard,
   LayoutList,
+  LifeBuoy,
   LogOut,
   Menu,
   UserCircle2,
@@ -16,6 +17,7 @@ import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useState } from "react";
 import { RosterlyLogo } from "@/components/branding/rosterly-logo";
+import { ContactSupportModal } from "@/components/layout/contact-support-modal";
 import { NotificationsBell } from "@/components/layout/notifications-bell";
 import { cn } from "@/lib/utils";
 import { createClient } from "@/utils/supabase/client";
@@ -76,10 +78,12 @@ function SidebarContents({
   pathname,
   onClose,
   onLogout,
+  onOpenSupport,
 }: {
   pathname: string;
   onClose: () => void;
   onLogout: () => void;
+  onOpenSupport: () => void;
 }) {
   return (
     <div className="flex h-full flex-col">
@@ -110,6 +114,17 @@ function SidebarContents({
             </Link>
           );
         })}
+        <button
+          type="button"
+          onClick={() => {
+            onOpenSupport();
+            onClose();
+          }}
+          className="flex w-full items-center gap-3 rounded-md px-3 py-2.5 text-sm font-medium text-foreground/70 transition-colors hover:bg-muted hover:text-foreground"
+        >
+          <LifeBuoy className="h-4 w-4 shrink-0" />
+          Contact support
+        </button>
       </nav>
 
       {/* Logout */}
@@ -134,6 +149,7 @@ export function AuthenticatedShell({ children }: { children: React.ReactNode }) 
   const pathname = usePathname();
   const router = useRouter();
   const [mobileOpen, setMobileOpen] = useState(false);
+  const [supportOpen, setSupportOpen] = useState(false);
 
   async function handleLogout() {
     const supabase = createClient();
@@ -146,10 +162,12 @@ export function AuthenticatedShell({ children }: { children: React.ReactNode }) 
     pathname,
     onClose: () => setMobileOpen(false),
     onLogout: handleLogout,
+    onOpenSupport: () => setSupportOpen(true),
   };
 
   return (
     <div className="flex min-h-screen bg-background">
+      <ContactSupportModal open={supportOpen} onOpenChange={setSupportOpen} />
       {/* ── Mobile overlay ── */}
       <div
         className={cn(
