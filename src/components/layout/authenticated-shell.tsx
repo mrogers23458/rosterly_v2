@@ -22,7 +22,7 @@ import { RosterlyLogo } from "@/components/branding/rosterly-logo";
 import { ChatFlyoutProvider, useChatFlyout } from "@/components/chat/chat-flyout-context";
 import { MessagesFlyout } from "@/components/chat/messages-flyout";
 import { ContactSupportModal } from "@/components/layout/contact-support-modal";
-import { NotificationsBell } from "@/components/layout/notifications-bell";
+import { NotificationsBell, NotificationsNavItem } from "@/components/layout/notifications-bell";
 import { cn } from "@/lib/utils";
 import { createClient } from "@/utils/supabase/client";
 
@@ -99,6 +99,9 @@ function SidebarContents({
       </div>
 
       <nav className="flex-1 space-y-0.5 overflow-y-auto p-2">
+        {/* Notifications first — most time-sensitive item */}
+        <NotificationsNavItem onClick={onClose} />
+
         {navItems.map((item) => {
           const active = item.matchFn(pathname);
           return (
@@ -118,6 +121,7 @@ function SidebarContents({
             </Link>
           );
         })}
+
         <button
           type="button"
           onClick={() => {
@@ -143,10 +147,6 @@ function SidebarContents({
       </nav>
 
       <div className="border-t border-border p-2">
-        <div className="mb-1 flex items-center justify-between px-3 py-1">
-          <span className="text-xs text-muted-foreground">Notifications</span>
-          <NotificationsBell />
-        </div>
         <Link
           href="/profile"
           onClick={onClose}
