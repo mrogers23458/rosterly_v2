@@ -1,31 +1,22 @@
-const CACHE_VERSION = "rosterly-v1";
-const STATIC_CACHE = `${CACHE_VERSION}-static`;
-const RUNTIME_CACHE = `${CACHE_VERSION}-runtime`;
-const OFFLINE_URL = "/offline";
+// CACHE_VERSION bump forces old service workers to uninstall on next visit.
+// This SW intentionally does NOT intercept fetch requests — pages always load
+// fresh from the network. Caching is left to the browser HTTP cache. This
+// avoids the class of bugs where a cached offline fallback is incorrectly
+// served to online users.
+const CACHE_VERSION = "rosterly-v3";
 
-const PRECACHE_URLS = [
-  "/",
-  "/dashboard",
-  OFFLINE_URL,
-  "/manifest.webmanifest",
-  "/icons/icon-192.svg",
-  "/icons/icon-512.svg",
-  "/rosterly_logo_cropped.png",
-];
-
-self.addEventListener("install", (event) => {
-  event.waitUntil(
-    caches.open(STATIC_CACHE).then((cache) => cache.addAll(PRECACHE_URLS)).then(() => self.skipWaiting()),
-  );
+self.addEventListener("install", () => {
+  // Skip waiting so this SW activates immediately and replaces any old SW that
+  // was incorrectly serving the offline page as a navigation fallback.
+  self.skipWaiting();
 });
 
 self.addEventListener("activate", (event) => {
   event.waitUntil(
+    // Delete ALL old caches (rosterly-v1, rosterly-v2, etc.)
     caches
       .keys()
-      .then((keys) =>
-        Promise.all(keys.filter((key) => !key.startsWith(CACHE_VERSION)).map((key) => caches.delete(key))),
-      )
+      .then((keys) => Promise.all(keys.map((key) => caches.delete(key))))
       .then(() => self.clients.claim()),
   );
 });
@@ -36,45 +27,38 @@ self.addEventListener("message", (event) => {
   }
 });
 
-function isCacheableRequest(request) {
-  const url = new URL(request.url);
-  if (url.origin !== self.location.origin) return false;
-  if (url.pathname.startsWith("/api/")) return false;
-  if (url.pathname.startsWith("/auth/")) return false;
-  return request.method === "GET";
-}
-
-self.addEventListener("fetch", (event) => {
-  const { request } = event;
-  if (!isCacheableRequest(request)) return;
-
-  if (request.mode === "navigate") {
-    event.respondWith(
-      fetch(request)
-        .then((response) => {
-          const cloned = response.clone();
-          void caches.open(RUNTIME_CACHE).then((cache) => cache.put(request, cloned));
-          return response;
-        })
-        .catch(async () => {
-          const cached = await caches.match(request);
-          if (cached) return cached;
-          return caches.match(OFFLINE_URL);
-        }),
-    );
-    return;
+// Push notification handler — the only fetch-related feature we keep.
+self.addEventListener("push", (event) => {
+  if (!event.data) return;
+  let payload = { title: "Rosterly reminder", body: "You have a new reminder.", url: "/" };
+  try {
+    payload = { ...payload, ...event.data.json() };
+  } catch {
+    // Fall back to defaults if payload is malformed.
   }
 
-  event.respondWith(
-    caches.match(request).then((cached) => {
-      if (cached) return cached;
-      return fetch(request)
-        .then((response) => {
-          const cloned = response.clone();
-          void caches.open(RUNTIME_CACHE).then((cache) => cache.put(request, cloned));
-          return response;
-        })
-        .catch(() => caches.match("/rosterly_logo_cropped.png"));
+  event.waitUntil(
+    self.registration.showNotification(payload.title, {
+      body: payload.body,
+      icon: "/icons/icon-192.svg",
+      badge: "/icons/icon-192.svg",
+      data: { url: payload.url },
+    }),
+  );
+});
+
+self.addEventListener("notificationclick", (event) => {
+  event.notification.close();
+  const destination = event.notification.data?.url || "/";
+  event.waitUntil(
+    self.clients.matchAll({ type: "window", includeUncontrolled: true }).then((clients) => {
+      for (const client of clients) {
+        if ("focus" in client && client.url.includes(self.location.origin)) {
+          client.navigate(destination);
+          return client.focus();
+        }
+      }
+      return self.clients.openWindow(destination);
     }),
   );
 });
