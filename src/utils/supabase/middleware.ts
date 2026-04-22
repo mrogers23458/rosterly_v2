@@ -22,7 +22,13 @@ export async function updateSession(request: NextRequest) {
         );
         supabaseResponse = NextResponse.next({ request });
         cookiesToSet.forEach(({ name, value, options }) =>
-          supabaseResponse.cookies.set(name, value, options),
+          // Persist auth cookies across browser restarts (7 days).
+          // Without an explicit maxAge the browser treats them as session
+          // cookies and deletes them the moment the tab is closed.
+          supabaseResponse.cookies.set(name, value, {
+            ...options,
+            maxAge: options?.maxAge ?? 60 * 60 * 24 * 7,
+          }),
         );
         // Collect cache headers from the library (Cache-Control, Expires, Pragma)
         if (cacheHeaders) {
