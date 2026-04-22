@@ -1,6 +1,6 @@
 "use client";
 
-import { CalendarDays, ClipboardList, Cloud, MessageSquare } from "lucide-react";
+import { Bell, CalendarDays, ClipboardList, Cloud, MessageSquare } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   Dialog, DialogBody, DialogContent,
@@ -20,6 +20,12 @@ export const WIDGET_REGISTRY: {
     label:       "Upcoming Events",
     description: "Scheduled games, practices, and more",
     icon:        <CalendarDays className="h-4 w-4" />,
+  },
+  {
+    id:          "notifications",
+    label:       "Notifications",
+    description: "Recent alerts and team updates",
+    icon:        <Bell className="h-4 w-4" />,
   },
   {
     id:          "quick-chat",
