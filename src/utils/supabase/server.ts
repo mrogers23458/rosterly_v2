@@ -16,7 +16,10 @@ export const createClient = (
       setAll(cookiesToSet, _cacheHeaders) {
         try {
           cookiesToSet.forEach(({ name, value, options }) =>
-            cookieStore.set(name, value, options),
+            cookieStore.set(name, value, {
+              ...options,
+              maxAge: options?.maxAge ?? 60 * 60 * 24 * 7,
+            }),
           );
         } catch {
           // Called from a Server Component without mutable cookies; middleware keeps session fresh.
