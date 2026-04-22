@@ -11,7 +11,7 @@ import {
   type TeamChatRow,
 } from "@/app/actions/direct-messages";
 import type { TeamMessage } from "@/app/actions/messages";
-import { getTeamMessages, markConversationRead } from "@/app/actions/messages";
+import { getTeamMessages, getUnreadConversationIds, markConversationRead } from "@/app/actions/messages";
 import { DirectChat } from "@/components/chat/direct-chat";
 import { TeamChat } from "@/components/chat/team-chat";
 import { useChatFlyout } from "@/components/chat/chat-flyout-context";
@@ -101,6 +101,10 @@ export function MessagesFlyout() {
   const [dmMessages,   setDmMessages]   = useState<DirectMessage[]>([]);
   const [loadError,    setLoadError]    = useState<string | null>(null);
 
+  // Per-conversation unread indicators — set of IDs with new messages
+  const [unreadTeamIds,   setUnreadTeamIds]   = useState<Set<string>>(new Set());
+  const [unreadDmUserIds, setUnreadDmUserIds] = useState<Set<string>>(new Set());
+
   // Push notification permission state
   const [pushSupported, setPushSupported] = useState(false);
   const [pushEnabled,   setPushEnabled]   = useState(false);
@@ -178,13 +182,19 @@ export function MessagesFlyout() {
   const loadSidebar = useCallback(() => {
     setSidebarLoading(true);
     startTransition(async () => {
-      const [tRes, pRes] = await Promise.all([getTeamsForChat(), getDirectChatPeers()]);
+      const [tRes, pRes, unreadRes] = await Promise.all([
+        getTeamsForChat(),
+        getDirectChatPeers(),
+        getUnreadConversationIds(),
+      ]);
       setSidebarLoading(false);
       if ("error" in tRes) { setLoadError(tRes.error ?? "Could not load teams."); return; }
       if ("error" in pRes) { setLoadError(pRes.error ?? "Could not load teammates."); return; }
       setLoadError(null);
       setTeams(tRes.data);
       setPeers(pRes.data);
+      setUnreadTeamIds(new Set(unreadRes.teamIds));
+      setUnreadDmUserIds(new Set(unreadRes.dmUserIds));
     });
   }, []);
 
@@ -209,7 +219,8 @@ export function MessagesFlyout() {
         else {
           setLoadError(null);
           setTeamMessages(res.data ?? []);
-          // Mark as read after messages load
+          // Clear the per-conversation dot immediately
+          setUnreadTeamIds((prev) => { const next = new Set(prev); next.delete(selection.teamId); return next; });
           void markConversationRead("team", selection.teamId);
         }
       } else {
@@ -220,6 +231,8 @@ export function MessagesFlyout() {
         else {
           setLoadError(null);
           setDmMessages(res.data ?? []);
+          // Clear the per-conversation dot immediately
+          setUnreadDmUserIds((prev) => { const next = new Set(prev); next.delete(selection.userId); return next; });
           const convId = [userId, selection.userId].sort().join(":");
           void markConversationRead("direct", convId);
         }
@@ -307,7 +320,8 @@ export function MessagesFlyout() {
                   <p className="px-2 py-1 text-xs text-muted-foreground">No teams yet.</p>
                 ) : (
                   teams.map((t) => {
-                    const active = selection?.kind === "team" && selection.teamId === t.id;
+                    const active   = selection?.kind === "team" && selection.teamId === t.id;
+                    const hasUnread = !active && unreadTeamIds.has(t.id);
                     return (
                       <button
                         key={t.id}
@@ -317,11 +331,16 @@ export function MessagesFlyout() {
                           "flex w-full items-center gap-2 rounded-md px-2 py-2 text-left text-sm transition-colors",
                           active
                             ? "bg-primary/10 font-medium text-primary"
-                            : "text-foreground/80 hover:bg-muted",
+                            : hasUnread
+                              ? "font-medium text-foreground hover:bg-muted"
+                              : "text-foreground/80 hover:bg-muted",
                         )}
                       >
                         <Users className="h-3.5 w-3.5 shrink-0 opacity-70" />
-                        <span className="truncate">{t.name}</span>
+                        <span className="flex-1 truncate">{t.name}</span>
+                        {hasUnread && (
+                          <span className="h-2 w-2 shrink-0 rounded-full bg-primary" />
+                        )}
                       </button>
                     );
                   })
@@ -340,7 +359,8 @@ export function MessagesFlyout() {
                   </p>
                 ) : (
                   peers.map((p) => {
-                    const active = selection?.kind === "direct" && selection.userId === p.userId;
+                    const active    = selection?.kind === "direct" && selection.userId === p.userId;
+                    const hasUnread = !active && unreadDmUserIds.has(p.userId);
                     return (
                       <button
                         key={p.userId}
@@ -350,11 +370,16 @@ export function MessagesFlyout() {
                           "flex w-full items-center gap-2 rounded-md px-2 py-2 text-left text-sm transition-colors",
                           active
                             ? "bg-primary/10 font-medium text-primary"
-                            : "text-foreground/80 hover:bg-muted",
+                            : hasUnread
+                              ? "font-medium text-foreground hover:bg-muted"
+                              : "text-foreground/80 hover:bg-muted",
                         )}
                       >
                         <User className="h-3.5 w-3.5 shrink-0 opacity-70" />
-                        <span className="truncate">{p.displayName}</span>
+                        <span className="flex-1 truncate">{p.displayName}</span>
+                        {hasUnread && (
+                          <span className="h-2 w-2 shrink-0 rounded-full bg-primary" />
+                        )}
                       </button>
                     );
                   })
