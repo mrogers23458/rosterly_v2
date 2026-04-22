@@ -3,6 +3,8 @@
 import { cookies } from "next/headers";
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/utils/supabase/server";
+import { createAdminClient } from "@/utils/supabase/admin";
+import { sendPushToUsers } from "@/lib/push";
 
 export type TeamMessage = {
   id:          string;
@@ -24,7 +26,7 @@ async function getClient() {
   return { supabase, user };
 }
 
-// ─── Load (e.g. messages flyout) ─────────────────────────────────────────────
+// ─── Load ─────────────────────────────────────────────────────────────────────
 
 export async function getTeamMessages(
   teamId: string,
@@ -62,10 +64,9 @@ export async function sendTeamMessage(
   if (!user) return { error: "You must be signed in." };
 
   const trimmed = body.trim();
-  if (!trimmed)           return { error: "Message cannot be empty." };
+  if (!trimmed)              return { error: "Message cannot be empty." };
   if (trimmed.length > 2000) return { error: "Message is too long (max 2000 characters)." };
 
-  // Build display name from user metadata (Google OAuth) or fall back to email prefix
   const senderName: string =
     (user.user_metadata?.full_name as string | undefined) ??
     (user.user_metadata?.name     as string | undefined) ??
@@ -74,18 +75,39 @@ export async function sendTeamMessage(
 
   const { data, error } = await supabase
     .from("team_messages")
-    .insert({
-      team_id:     teamId,
-      user_id:     user.id,
-      sender_name: senderName,
-      body:        trimmed,
-    })
+    .insert({ team_id: teamId, user_id: user.id, sender_name: senderName, body: trimmed })
     .select("*")
     .single();
 
   if (error || !data) return { error: error?.message ?? "Could not send message." };
 
   revalidatePath(`/teams/${teamId}/chat`);
+
+  // Fire push to team members — non-blocking, failures are swallowed
+  void (async () => {
+    try {
+      const admin = createAdminClient();
+      const [{ data: members }, { data: team }] = await Promise.all([
+        admin
+          .from("team_members")
+          .select("user_id")
+          .eq("team_id", teamId)
+          .neq("user_id", user.id),
+        admin.from("teams").select("name").eq("id", teamId).single(),
+      ]);
+      const recipientIds = (members ?? []).map((m: { user_id: string }) => m.user_id);
+      if (recipientIds.length > 0) {
+        await sendPushToUsers(recipientIds, {
+          title: `New message in ${(team as { name?: string } | null)?.name ?? "Team"}`,
+          body:  `${senderName}: ${trimmed.slice(0, 100)}`,
+          url:   "/?openMessages=1",
+        });
+      }
+    } catch {
+      // Push failures must never fail the message send
+    }
+  })();
+
   return { data: data as TeamMessage };
 }
 
@@ -102,9 +124,37 @@ export async function deleteTeamMessage(
     .from("team_messages")
     .delete()
     .eq("id", messageId)
-    .eq("user_id", user.id); // RLS also enforces this, but belt-and-suspenders
+    .eq("user_id", user.id);
 
   if (error) return { error: error.message };
   revalidatePath(`/teams/${teamId}/chat`);
   return {};
+}
+
+// ─── Unread count ─────────────────────────────────────────────────────────────
+
+export async function getUnreadMessageCount(): Promise<number> {
+  const { supabase, user } = await getClient();
+  if (!user) return 0;
+  const { data, error } = await supabase.rpc("get_unread_message_count", { p_user_id: user.id });
+  return error ? 0 : ((data as number) ?? 0);
+}
+
+// ─── Mark conversation read ───────────────────────────────────────────────────
+
+export async function markConversationRead(
+  type: "team" | "direct",
+  conversationId: string,
+): Promise<void> {
+  const { supabase, user } = await getClient();
+  if (!user) return;
+  await supabase.from("message_reads").upsert(
+    {
+      user_id:           user.id,
+      conversation_type: type,
+      conversation_id:   conversationId,
+      last_read_at:      new Date().toISOString(),
+    },
+    { onConflict: "user_id,conversation_type,conversation_id" },
+  );
 }

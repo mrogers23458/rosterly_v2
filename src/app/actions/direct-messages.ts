@@ -3,6 +3,7 @@
 import { cookies } from "next/headers";
 import { createClient } from "@/utils/supabase/server";
 import { getUserTeamRole } from "@/lib/permissions";
+import { sendPushToUsers } from "@/lib/push";
 
 export type DirectMessage = {
   id:           string;
@@ -211,6 +212,14 @@ export async function sendDirectMessage(
     .single();
 
   if (error || !data) return { error: error?.message ?? "Could not send message." };
+
+  // Fire push to recipient — non-blocking, failures are swallowed
+  void sendPushToUsers([peerUserId], {
+    title: `New message from ${senderName}`,
+    body:  trimmed.slice(0, 100),
+    url:   "/?openMessages=1",
+  }).catch(() => {});
+
   return { data: data as DirectMessage };
 }
 
