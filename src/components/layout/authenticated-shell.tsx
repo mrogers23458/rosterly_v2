@@ -16,13 +16,14 @@ import {
   X,
 } from "lucide-react";
 import Link from "next/link";
-import { usePathname, useRouter } from "next/navigation";
-import { useState } from "react";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
+import { Suspense, useEffect, useState } from "react";
 import { RosterlyLogo } from "@/components/branding/rosterly-logo";
 import { ChatFlyoutProvider, useChatFlyout } from "@/components/chat/chat-flyout-context";
 import { MessagesFlyout } from "@/components/chat/messages-flyout";
 import { ContactSupportModal } from "@/components/layout/contact-support-modal";
 import { NotificationsBell, NotificationsNavItem } from "@/components/layout/notifications-bell";
+import { useUnreadMessageCount } from "@/hooks/use-unread-message-count";
 import { cn } from "@/lib/utils";
 import { createClient } from "@/utils/supabase/client";
 
@@ -78,18 +79,29 @@ const navItems: NavItem[] = [
   },
 ];
 
+function UnreadBadge({ count }: { count: number }) {
+  if (count <= 0) return null;
+  return (
+    <span className="ml-auto flex h-5 min-w-[1.25rem] items-center justify-center rounded-full bg-red-500 px-1.5 text-[11px] font-bold leading-none text-white">
+      {count > 99 ? "99+" : count}
+    </span>
+  );
+}
+
 function SidebarContents({
   pathname,
   onClose,
   onLogout,
   onOpenSupport,
   onOpenMessages,
+  unreadMessages,
 }: {
   pathname: string;
   onClose: () => void;
   onLogout: () => void;
   onOpenSupport: () => void;
   onOpenMessages: () => void;
+  unreadMessages: number;
 }) {
   return (
     <div className="flex h-full flex-col">
@@ -122,6 +134,7 @@ function SidebarContents({
           );
         })}
 
+        {/* Messages with unread badge */}
         <button
           type="button"
           onClick={() => {
@@ -130,9 +143,18 @@ function SidebarContents({
           }}
           className="flex w-full items-center gap-3 rounded-md px-3 py-2.5 text-sm font-medium text-foreground/70 transition-colors hover:bg-muted hover:text-foreground"
         >
-          <MessageSquare className="h-4 w-4 shrink-0" />
+          <div className="relative shrink-0">
+            <MessageSquare className="h-4 w-4" />
+            {unreadMessages > 0 && (
+              <span className="absolute -right-1.5 -top-1.5 flex h-4 w-4 items-center justify-center rounded-full bg-red-500 text-[9px] font-bold text-white">
+                {unreadMessages > 9 ? "9+" : unreadMessages}
+              </span>
+            )}
+          </div>
           Messages
+          <UnreadBadge count={unreadMessages} />
         </button>
+
         <button
           type="button"
           onClick={() => {
@@ -172,12 +194,36 @@ function SidebarContents({
   );
 }
 
+/**
+ * Tiny component that reads ?openMessages=1 and opens the chat flyout.
+ * Must be wrapped in <Suspense> because it uses useSearchParams.
+ */
+function OpenMessagesDeepLink() {
+  const searchParams = useSearchParams();
+  const { setOpen: setChatFlyoutOpen } = useChatFlyout();
+  const { reset: resetMessageCount }   = useUnreadMessageCount();
+
+  useEffect(() => {
+    if (searchParams.get("openMessages") === "1") {
+      setChatFlyoutOpen(true);
+      resetMessageCount();
+      const url = new URL(window.location.href);
+      url.searchParams.delete("openMessages");
+      window.history.replaceState({}, "", url.toString());
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [searchParams]);
+
+  return null;
+}
+
 function AuthenticatedShellInner({ children }: { children: React.ReactNode }) {
-  const pathname = usePathname();
-  const router = useRouter();
+  const pathname    = usePathname();
+  const router      = useRouter();
   const [mobileOpen, setMobileOpen] = useState(false);
   const [supportOpen, setSupportOpen] = useState(false);
   const { setOpen: setChatFlyoutOpen } = useChatFlyout();
+  const { count: unreadMessages, reset: resetMessageCount } = useUnreadMessageCount();
 
   async function handleLogout() {
     const supabase = createClient();
@@ -186,18 +232,28 @@ function AuthenticatedShellInner({ children }: { children: React.ReactNode }) {
     router.refresh();
   }
 
+  function handleOpenMessages() {
+    setChatFlyoutOpen(true);
+    resetMessageCount();
+  }
+
   const sidebarProps = {
     pathname,
-    onClose: () => setMobileOpen(false),
-    onLogout: handleLogout,
-    onOpenSupport: () => setSupportOpen(true),
-    onOpenMessages: () => setChatFlyoutOpen(true),
+    onClose:         () => setMobileOpen(false),
+    onLogout:        handleLogout,
+    onOpenSupport:   () => setSupportOpen(true),
+    onOpenMessages:  handleOpenMessages,
+    unreadMessages,
   };
 
   return (
     <div className="flex min-h-dvh bg-background [--sidebar-w:16rem]">
       <ContactSupportModal open={supportOpen} onOpenChange={setSupportOpen} />
       <MessagesFlyout />
+      {/* Deep-link handler — wrapped in Suspense because it uses useSearchParams */}
+      <Suspense fallback={null}>
+        <OpenMessagesDeepLink />
+      </Suspense>
 
       <div
         className={cn(
@@ -240,13 +296,19 @@ function AuthenticatedShellInner({ children }: { children: React.ReactNode }) {
           <RosterlyLogo size={30} />
           <span className="text-base font-bold text-primary">Rosterly</span>
           <div className="ml-auto flex items-center gap-1">
+            {/* Messages button with badge for mobile header */}
             <button
               type="button"
-              onClick={() => setChatFlyoutOpen(true)}
-              className="rounded p-2 text-foreground/60 hover:text-foreground"
+              onClick={handleOpenMessages}
+              className="relative rounded p-2 text-foreground/60 hover:text-foreground"
               aria-label="Open messages"
             >
               <MessageSquare className="h-5 w-5" />
+              {unreadMessages > 0 && (
+                <span className="absolute right-1 top-1 flex h-4 w-4 items-center justify-center rounded-full bg-red-500 text-[9px] font-bold text-white">
+                  {unreadMessages > 9 ? "9+" : unreadMessages}
+                </span>
+              )}
             </button>
             <NotificationsBell />
           </div>
