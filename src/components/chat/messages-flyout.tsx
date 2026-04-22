@@ -1,6 +1,6 @@
 "use client";
 
-import { MessageSquare, PanelRightClose, User, Users } from "lucide-react";
+import { Bell, BellOff, MessageSquare, PanelRightClose, User, Users } from "lucide-react";
 import { useCallback, useEffect, useRef, useState, useTransition } from "react";
 import type { DirectMessage } from "@/app/actions/direct-messages";
 import {
@@ -11,7 +11,7 @@ import {
   type TeamChatRow,
 } from "@/app/actions/direct-messages";
 import type { TeamMessage } from "@/app/actions/messages";
-import { getTeamMessages } from "@/app/actions/messages";
+import { getTeamMessages, markConversationRead } from "@/app/actions/messages";
 import { DirectChat } from "@/components/chat/direct-chat";
 import { TeamChat } from "@/components/chat/team-chat";
 import { useChatFlyout } from "@/components/chat/chat-flyout-context";
@@ -94,12 +94,17 @@ function MessagesSkeleton() {
 export function MessagesFlyout() {
   const { open, setOpen, selection, clearSelection, openTeamChat, openDirectChat } =
     useChatFlyout();
-  const [userId, setUserId]           = useState<string | null>(null);
-  const [teams,  setTeams]            = useState<TeamChatRow[]>([]);
-  const [peers,  setPeers]            = useState<DirectChatPeer[]>([]);
+  const [userId, setUserId]             = useState<string | null>(null);
+  const [teams,  setTeams]              = useState<TeamChatRow[]>([]);
+  const [peers,  setPeers]              = useState<DirectChatPeer[]>([]);
   const [teamMessages, setTeamMessages] = useState<TeamMessage[]>([]);
   const [dmMessages,   setDmMessages]   = useState<DirectMessage[]>([]);
   const [loadError,    setLoadError]    = useState<string | null>(null);
+
+  // Push notification permission state
+  const [pushSupported, setPushSupported] = useState(false);
+  const [pushEnabled,   setPushEnabled]   = useState(false);
+  const [pushPending,   setPushPending]   = useState(false);
 
   // Separate loading flags so we can show targeted skeletons
   const [sidebarLoading,  setSidebarLoading]  = useState(false);
@@ -116,6 +121,59 @@ export function MessagesFlyout() {
       setUserId(data.user?.id ?? null);
     });
   }, []);
+
+  // Detect push support and current permission
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const notifSupported = "Notification" in window;
+    setPushSupported("serviceWorker" in navigator && "PushManager" in window && notifSupported);
+    setPushEnabled(notifSupported && Notification.permission === "granted");
+  }, []);
+
+  function decodeVapidKey(base64: string) {
+    const padding    = "=".repeat((4 - (base64.length % 4)) % 4);
+    const normalized = (base64 + padding).replaceAll("-", "+").replaceAll("_", "/");
+    const raw        = atob(normalized);
+    return Uint8Array.from([...raw].map((ch) => ch.charCodeAt(0)));
+  }
+
+  async function enablePush() {
+    if (!pushSupported || pushPending) return;
+    const vapidPublic = process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY;
+    if (!vapidPublic) return;
+    setPushPending(true);
+    try {
+      const permission = await Notification.requestPermission();
+      if (permission !== "granted") return;
+      const registration  = await navigator.serviceWorker.ready;
+      let subscription    = await registration.pushManager.getSubscription();
+      if (!subscription) {
+        subscription = await registration.pushManager.subscribe({
+          userVisibleOnly:      true,
+          applicationServerKey: decodeVapidKey(vapidPublic),
+        });
+      }
+      await fetch("/api/push/subscription", {
+        method:  "POST",
+        headers: { "Content-Type": "application/json" },
+        body:    JSON.stringify(subscription.toJSON()),
+      });
+      setPushEnabled(true);
+    } finally {
+      setPushPending(false);
+    }
+  }
+
+  // ── Mark-as-read helper ────────────────────────────────────────────────────
+  function markSelectionRead(sel: typeof selection, uid: string | null) {
+    if (!sel || !uid) return;
+    if (sel.kind === "team") {
+      void markConversationRead("team", sel.teamId);
+    } else {
+      const convId = [uid, sel.userId].sort().join(":");
+      void markConversationRead("direct", convId);
+    }
+  }
 
   const loadSidebar = useCallback(() => {
     setSidebarLoading(true);
@@ -145,22 +203,32 @@ export function MessagesFlyout() {
     startTransition(async () => {
       if (selection.kind === "team") {
         const res = await getTeamMessages(selection.teamId);
-        // Only apply if the selection hasn't changed while we were loading
         if (loadingSelectionRef.current !== selection.teamId) return;
         setMessagesLoading(false);
         if (res.error) setLoadError(res.error);
-        else { setLoadError(null); setTeamMessages(res.data ?? []); }
+        else {
+          setLoadError(null);
+          setTeamMessages(res.data ?? []);
+          // Mark as read after messages load
+          void markConversationRead("team", selection.teamId);
+        }
       } else {
         const res = await getDirectMessages(selection.userId);
         if (loadingSelectionRef.current !== selection.userId) return;
         setMessagesLoading(false);
         if (res.error) setLoadError(res.error);
-        else { setLoadError(null); setDmMessages(res.data ?? []); }
+        else {
+          setLoadError(null);
+          setDmMessages(res.data ?? []);
+          const convId = [userId, selection.userId].sort().join(":");
+          void markConversationRead("direct", convId);
+        }
       }
     });
   }, [open, selection, userId]);
 
   function handleClose() {
+    markSelectionRead(selection, userId);
     setOpen(false);
     clearSelection();
   }
@@ -190,16 +258,39 @@ export function MessagesFlyout() {
             <MessageSquare className="h-4 w-4 text-primary" />
             <span className="text-sm font-semibold">Messages</span>
           </div>
-          <Button
-            type="button"
-            variant="ghost"
-            size="icon"
-            className="h-8 w-8 shrink-0"
-            onClick={handleClose}
-            aria-label="Close messages"
-          >
-            <PanelRightClose className="h-4 w-4" />
-          </Button>
+          <div className="flex items-center gap-1">
+            {/* Push notification enable/status button */}
+            {pushSupported && (
+              <button
+                type="button"
+                onClick={() => void enablePush()}
+                disabled={pushEnabled || pushPending}
+                title={pushEnabled ? "Push notifications enabled" : "Enable push notifications for messages"}
+                className={cn(
+                  "flex h-8 w-8 items-center justify-center rounded-md transition-colors",
+                  pushEnabled
+                    ? "text-primary"
+                    : "text-muted-foreground hover:bg-muted hover:text-foreground",
+                )}
+              >
+                {pushEnabled ? (
+                  <Bell className="h-4 w-4" />
+                ) : (
+                  <BellOff className="h-4 w-4" />
+                )}
+              </button>
+            )}
+            <Button
+              type="button"
+              variant="ghost"
+              size="icon"
+              className="h-8 w-8 shrink-0"
+              onClick={handleClose}
+              aria-label="Close messages"
+            >
+              <PanelRightClose className="h-4 w-4" />
+            </Button>
+          </div>
         </header>
 
         <div className="flex min-h-0 flex-1 flex-col md:flex-row">
